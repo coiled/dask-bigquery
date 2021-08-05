@@ -1,0 +1,7 @@
+dask
+distributed
+google-cloud-bigquery
+google-cloud-bigquery-storage
+pandas
+pandas-gbq
+pyarrow
