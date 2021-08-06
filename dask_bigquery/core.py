@@ -14,6 +14,11 @@ from google.cloud import bigquery, bigquery_storage
 
 @contextmanager
 def bigquery_client(project_id=None, with_storage_api=False):
+    """This context manager is a temporary solution until there is an
+    upstream solution to handle this.
+    See  googleapis/google-cloud-python#9457
+    and googleapis/gapic-generator-python#575 for reference.
+    """
 
     bq_storage_client = None
     bq_client = bigquery.Client(project_id)
