@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import warnings
 from collections.abc import Iterable
 from contextlib import contextmanager
 from functools import partial
@@ -14,11 +13,7 @@ from google.cloud import bigquery, bigquery_storage
 
 
 @contextmanager
-def bigquery_client(project_id="dask-bigquery", with_storage_api=False):
-    # Ignore google auth credentials warning
-    warnings.filterwarnings(
-        "ignore", "Your application has authenticated using end user credentials"
-    )
+def bigquery_client(project_id=None, with_storage_api=False):
 
     bq_storage_client = None
     bq_client = bigquery.Client(project_id)
@@ -32,6 +27,10 @@ def bigquery_client(project_id="dask-bigquery", with_storage_api=False):
             yield bq_client
     finally:
         bq_client.close()
+
+
+def full_id(table):
+    return f"{table.project}.{table.dataset_id}.{table.table_id}"
 
 
 def _stream_to_dfs(bqs_client, stream_name, schema, timeout):
