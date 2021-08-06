@@ -29,10 +29,6 @@ def bigquery_client(project_id=None, with_storage_api=False):
         bq_client.close()
 
 
-def full_id(table):
-    return f"{table.project}.{table.dataset_id}.{table.table_id}"
-
-
 def _stream_to_dfs(bqs_client, stream_name, schema, timeout):
     """Given a Storage API client and a stream name, yield all dataframes."""
     return [
@@ -154,12 +150,7 @@ def read_gbq(
     ), dask.annotate(priority=1):
         table_ref = bq_client.get_table(".".join((dataset_id, table_id)))
         if table_ref.table_type == "VIEW":
-            # Materialize the view since the operations below don't work on views.
-            logging.warning(
-                "Materializing view in order to read into dask. This may be expensive."
-            )
-            query = f"SELECT * FROM `{full_id(table_ref)}`"
-            table_ref, _, _ = execute_query(query)
+            raise TypeError("Table type VIEW not supported")
 
         # The protobuf types can't be pickled (may be able to tweak w/ copyreg), so instead use a
         # generator func.
