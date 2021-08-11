@@ -193,10 +193,11 @@ def read_gbq(
                 logging.info(
                     "Specified `partition_field` without `partitions`; reading full table."
                 )
-                partitions = pd.read_gbq(
-                    f"SELECT DISTINCT {partition_field} FROM {dataset_id}.{table_id}",
-                    project_id=project_id,
-                )[partition_field].tolist()
+                partitions = [
+                    p
+                    for p in bq_client.list_partitions(f"{dataset_id}.{table_id}")
+                    if p != "__NULL__"
+                ]
                 # TODO generalize to ranges (as opposed to discrete values)
 
             partitions = sorted(partitions)
