@@ -62,7 +62,7 @@ def test_read_gbq(df, dataset, client):
     assert len(ddf) == 10
     assert ddf.npartitions == 2
 
-    assert assert_eq(ddf.set_index("idx").compute(), df.set_index("idx"))
+    assert assert_eq(ddf.set_index("idx"), df.set_index("idx"))
 
 
 # test partitioned data: this test requires a copy of the public dataset

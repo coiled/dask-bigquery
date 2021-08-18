@@ -182,7 +182,7 @@ def read_gbq(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
         )
         meta = schema.empty_table().to_pandas()
-        delayed_kwargs = dict(prefix=f"{dataset_id}.{table_id}-")
+        delayed_kwargs = {}
 
         if partition_field is not None:
             if row_filter:
