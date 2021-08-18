@@ -46,7 +46,7 @@ def _stream_to_dfs(bqs_client, stream_name, schema, timeout):
 
 
 @dask.delayed
-def _read_rows_arrow(
+def bigquery_arrow_read(
     *,
     make_create_read_session_request: callable,
     partition_field: str = None,
@@ -207,7 +207,7 @@ def read_gbq(
                 for partition_value in partitions
             ]
             delayed_dfs = [
-                _read_rows_arrow(
+                bigquery_arrow_read(
                     make_create_read_session_request=partial(
                         make_create_read_session_request, row_filter=row_filter
                     ),
@@ -220,7 +220,7 @@ def read_gbq(
         else:
             delayed_kwargs["meta"] = meta
             delayed_dfs = [
-                _read_rows_arrow(
+                bigquery_arrow_read(
                     make_create_read_session_request=make_create_read_session_request,
                     project_id=project_id,
                     stream_name=stream.name,
