@@ -37,7 +37,7 @@ def dataset(df):
                 dataset="dask-bigquery.dataset_test",
                 delete_contents=True,
             )
-        except:  # noqa:
+        except:  # noqa: E722
             pass
 
     # push data to gbq
