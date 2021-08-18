@@ -152,7 +152,7 @@ def read_gbq(
     with bigquery_client(project_id, with_storage_api=True) as (
         bq_client,
         bqs_client,
-    ), dask.annotate(priority=1):
+    ):
         table_ref = bq_client.get_table(".".join((dataset_id, table_id)))
         if table_ref.table_type == "VIEW":
             raise TypeError("Table type VIEW not supported")

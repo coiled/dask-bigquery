@@ -1,4 +1,5 @@
 import random
+import uuid
 
 import pandas as pd
 import pytest
@@ -30,25 +31,23 @@ def df():
 @pytest.fixture
 def dataset(df):
     "Push some data to BigQuery using pandas gbq"
-
-    with bigquery.Client() as bq_client:
-        try:
-            bq_client.delete_dataset(
-                dataset="dask-bigquery.dataset_test",
-                delete_contents=True,
-            )
-        except:  # noqa: E722
-            pass
-
+    dataset_id = uuid.uuid4().hex
+    project_id = "dask-bigquery"
     # push data to gbq
     pd.DataFrame.to_gbq(
         df,
-        destination_table="dataset_test.table_test",
-        project_id="dask-bigquery",
+        destination_table=f"{dataset_id}.table_test",
+        project_id=project_id,
         chunksize=5,
         if_exists="append",
     )
-    yield "dask-bigquery.dataset_test.table_test"
+    yield f"{project_id}.{dataset_id}.table_test"
+
+    with bigquery.Client() as bq_client:
+        bq_client.delete_dataset(
+            dataset=f"{project_id}.{dataset_id}",
+            delete_contents=True,
+        )
 
 
 # test simple read
