@@ -31,16 +31,14 @@ def df():
 def dataset(df):
     "Push some data to BigQuery using pandas gbq"
 
-    try:
-        # delete data set if exists
-        bq_client = bigquery.Client()
-        bq_client.delete_dataset(
-            dataset="dask-bigquery.dataset_test",
-            delete_contents=True,
-        )
-        bq_client.close()
-    except:  # if data doesn't exisit continue is that Value Error?
-        pass
+    with bigquery.Client() as bq_client:
+        try:
+            bq_client.delete_dataset(
+                dataset="dask-bigquery.dataset_test",
+                delete_contents=True,
+            )
+        except:  # noqa:
+            pass
 
     # push data to gbq
     pd.DataFrame.to_gbq(
