@@ -5,10 +5,13 @@ from collections.abc import Iterable
 from contextlib import contextmanager
 from functools import partial
 
-import dask
 import dask.dataframe as dd
 import pandas as pd
 import pyarrow
+from dask.base import tokenize
+from dask.dataframe.core import new_dd_object
+from dask.highlevelgraph import HighLevelGraph
+from dask.layers import DataFrameIOLayer
 from google.cloud import bigquery, bigquery_storage
 
 
@@ -45,7 +48,6 @@ def _stream_to_dfs(bqs_client, stream_name, schema, timeout):
     ]
 
 
-@dask.delayed
 def bigquery_arrow_read(
     *,
     make_create_read_session_request: callable,
@@ -217,16 +219,31 @@ def read_gbq(
                 )
                 for row_filter in row_filters
             ]
+            return dd.from_delayed(dfs=delayed_dfs, **delayed_kwargs)
         else:
-            delayed_kwargs["meta"] = meta
-            delayed_dfs = [
+            label = "read-gbq-"
+            output_name = label + tokenize(
+                project_id,
+                dataset_id,
+                table_id,
+                partition_field,
+                partitions,
+                row_filter,
+                fields,
+                read_timeout,
+            )
+            # Create Blockwise layer
+            layer = DataFrameIOLayer(
+                output_name,
+                meta.columns,
+                [stream.name for stream in session.streams],
                 bigquery_arrow_read(
                     make_create_read_session_request=make_create_read_session_request,
                     project_id=project_id,
-                    stream_name=stream.name,
                     timeout=read_timeout,
-                )
-                for stream in session.streams
-            ]
-
-        return dd.from_delayed(dfs=delayed_dfs, **delayed_kwargs)
+                ),
+                label=label,
+            )
+            divisions = tuple([None] * (len(session.streams) + 1))
+            graph = HighLevelGraph({output_name: layer}, {output_name: set()})
+            return new_dd_object(graph, output_name, meta, divisions)
