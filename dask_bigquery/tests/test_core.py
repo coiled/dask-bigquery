@@ -60,36 +60,3 @@ def test_read_gbq(df, dataset, client):
     assert list(ddf.columns) == ["name", "number", "idx"]
     assert ddf.npartitions == 2
     assert assert_eq(ddf.set_index("idx"), df.set_index("idx"))
-
-
-# test partitioned data: this test requires a copy of the public dataset
-# bigquery-public-data.covid19_public_forecasts.county_14d into a the
-# project dask-bigquery
-
-
-@pytest.mark.parametrize(
-    "fields",
-    ([], ["county_name"], ["county_name", "county_fips_code"]),
-    ids=["no_fields", "missing_partition_field", "fields"],
-)
-def test_read_gbq_partitioning(fields, client):
-    partitions = ["Teton", "Loudoun"]
-    ddf = read_gbq(
-        project_id="dask-bigquery",
-        dataset_id="covid19_public_forecasts",
-        table_id="county_14d",
-        partition_field="county_name",
-        partitions=partitions,
-        fields=fields,
-    )
-
-    assert len(ddf)  # check it's not empty
-    loaded = set(ddf.columns) | {ddf.index.name}
-
-    if fields:
-        assert loaded == set(fields) | {"county_name"}
-    else:  # all columns loaded
-        assert loaded >= set(["county_name", "county_fips_code"])
-
-    assert ddf.npartitions == len(partitions)
-    assert list(ddf.divisions) == sorted(ddf.divisions)

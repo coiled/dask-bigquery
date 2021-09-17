@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import logging
-from collections.abc import Iterable
 from contextlib import contextmanager
 from functools import partial
 
@@ -44,45 +42,6 @@ def _stream_to_dfs(bqs_client, stream_name, schema, timeout):
     ]
 
 
-def bigquery_read_partition_field(
-    make_create_read_session_request: callable,
-    project_id: str,
-    timeout: int,
-    partition_field: str,
-    row_filter: str,
-) -> pd.DataFrame:
-    """Read a single batch of rows via BQ Storage API, in Arrow binary format.
-    Args:
-        project_id: BigQuery project
-        create_read_session_request: kwargs to pass to `bqs_client.create_read_session`
-        as `request`
-        partition_field: BigQuery field for partitions, to be used as Dask index col for
-        divisions
-            NOTE: Please set if specifying `row_restriction` filters in TableReadOptions.
-    Adapted from
-    https://github.com/googleapis/python-bigquery-storage/blob/a0fc0af5b4447ce8b50c365d4d081b9443b8490e/google/cloud/bigquery_storage_v1/reader.py.
-    """
-    with bigquery_client(project_id) as (bq_client, bqs_client):
-        session = bqs_client.create_read_session(
-            make_create_read_session_request(row_filter=row_filter)
-        )
-        schema = pyarrow.ipc.read_schema(
-            pyarrow.py_buffer(session.arrow_schema.serialized_schema)
-        )
-
-        shards = [
-            df
-            for stream in session.streams
-            for df in _stream_to_dfs(bqs_client, stream.name, schema, timeout=timeout)
-        ]
-        # NOTE: if no rows satisfying the row_restriction, then `shards` will be empty list
-        if len(shards) == 0:
-            shards = [schema.empty_table().to_pandas()]
-        shards = [shard.set_index(partition_field, drop=True) for shard in shards]
-
-    return pd.concat(shards)
-
-
 def bigquery_read(
     make_create_read_session_request: callable,
     project_id: str,
@@ -118,10 +77,7 @@ def read_gbq(
     project_id: str,
     dataset_id: str,
     table_id: str,
-    partition_field: str = None,
-    partitions: Iterable[str] = None,
     row_filter="",
-    fields: list[str] = (),
     read_timeout: int = 3600,
 ):
     """Read table as dask dataframe using BigQuery Storage API via Arrow format.
@@ -143,19 +99,7 @@ def read_gbq(
         dask dataframe
     See https://github.com/dask/dask/issues/3121 for additional context.
     """
-    if (partition_field is None) and (partitions is not None):
-        raise ValueError("Specified `partitions` without `partition_field`.")
 
-    # If `partition_field` is not part of the `fields` filter, fetch it anyway to be able
-    # to set it as dask dataframe index. We want this to be able to have consistent:
-    # BQ partitioning + dask divisions + pandas index values
-    if (partition_field is not None) and fields and (partition_field not in fields):
-        fields = (partition_field, *fields)
-
-    # These read tasks seems to cause deadlocks (or at least long stuck workers out of touch with
-    # the scheduler), particularly when mixed with other tasks that execute C code. Anecdotally
-    # annotating the tasks with a higher priority seems to help (but not fully solve) the issue at
-    # the expense of higher cluster memory usage.
     with bigquery_client(project_id) as (
         bq_client,
         bqs_client,
@@ -174,7 +118,6 @@ def read_gbq(
                     data_format=bigquery_storage.types.DataFormat.ARROW,
                     read_options=bigquery_storage.types.ReadSession.TableReadOptions(
                         row_restriction=row_filter,
-                        selected_fields=fields,
                     ),
                     table=table_ref.to_bqstorage(),
                 ),
@@ -195,63 +138,23 @@ def read_gbq(
             project_id,
             dataset_id,
             table_id,
-            partition_field,
-            partitions,
             row_filter,
-            fields,
             read_timeout,
         )
 
-        if partition_field is not None:
-            if row_filter:
-                raise ValueError("Cannot pass both `partition_field` and `row_filter`")
-
-            meta = meta.set_index(partition_field, drop=True)
-
-            if partitions is None:
-                logging.info(
-                    "Specified `partition_field` without `partitions`; reading full table."
-                )
-                partitions = [
-                    p
-                    for p in bq_client.list_partitions(f"{dataset_id}.{table_id}")
-                    if p != "__NULL__"
-                ]
-                # TODO generalize to ranges (as opposed to discrete values)
-
-            partitions = sorted(partitions)
-            row_filters = [
-                f'{partition_field} = "{partition_value}"'
-                for partition_value in partitions
-            ]
-            layer = DataFrameIOLayer(
-                output_name,
-                meta.columns,
-                row_filters,
-                partial(
-                    bigquery_read_partition_field,
-                    make_create_read_session_request,
-                    project_id,
-                    read_timeout,
-                    partition_field,
-                ),
-                label=label,
-            )
-            divisions = (*partitions, partitions[-1])
-        else:
-            layer = DataFrameIOLayer(
-                output_name,
-                meta.columns,
-                [stream.name for stream in session.streams],
-                partial(
-                    bigquery_read,
-                    make_create_read_session_request,
-                    project_id,
-                    read_timeout,
-                ),
-                label=label,
-            )
-            divisions = tuple([None] * (len(session.streams) + 1))
+        layer = DataFrameIOLayer(
+            output_name,
+            meta.columns,
+            [stream.name for stream in session.streams],
+            partial(
+                bigquery_read,
+                make_create_read_session_request,
+                project_id,
+                read_timeout,
+            ),
+            label=label,
+        )
+        divisions = tuple([None] * (len(session.streams) + 1))
 
         graph = HighLevelGraph({output_name: layer}, {output_name: set()})
         return new_dd_object(graph, output_name, meta, divisions)
