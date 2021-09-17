@@ -15,7 +15,7 @@ from google.cloud import bigquery, bigquery_storage
 
 
 @contextmanager
-def bigquery_client(project_id=None, with_storage_api=False):
+def bigquery_client(project_id=None):
     """This context manager is a temporary solution until there is an
     upstream solution to handle this.
     See  googleapis/google-cloud-python#9457
@@ -25,13 +25,10 @@ def bigquery_client(project_id=None, with_storage_api=False):
     bq_storage_client = None
     with bigquery.Client(project_id) as bq_client:
         try:
-            if with_storage_api:
-                bq_storage_client = bigquery_storage.BigQueryReadClient(
-                    credentials=bq_client._credentials
-                )
-                yield bq_client, bq_storage_client
-            else:
-                yield bq_client
+            bq_storage_client = bigquery_storage.BigQueryReadClient(
+                credentials=bq_client._credentials
+            )
+            yield bq_client, bq_storage_client
         finally:
             bq_storage_client.transport.grpc_channel.close()
 
@@ -65,7 +62,7 @@ def bigquery_read_partition_field(
     Adapted from
     https://github.com/googleapis/python-bigquery-storage/blob/a0fc0af5b4447ce8b50c365d4d081b9443b8490e/google/cloud/bigquery_storage_v1/reader.py.
     """
-    with bigquery_client(project_id, with_storage_api=True) as (bq_client, bqs_client):
+    with bigquery_client(project_id) as (bq_client, bqs_client):
         session = bqs_client.create_read_session(
             make_create_read_session_request(row_filter=row_filter)
         )
@@ -104,7 +101,7 @@ def bigquery_read(
     Adapted from
     https://github.com/googleapis/python-bigquery-storage/blob/a0fc0af5b4447ce8b50c365d4d081b9443b8490e/google/cloud/bigquery_storage_v1/reader.py.
     """
-    with bigquery_client(project_id, with_storage_api=True) as (bq_client, bqs_client):
+    with bigquery_client(project_id) as (bq_client, bqs_client):
         session = bqs_client.create_read_session(make_create_read_session_request())
         schema = pyarrow.ipc.read_schema(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
@@ -159,7 +156,7 @@ def read_gbq(
     # the scheduler), particularly when mixed with other tasks that execute C code. Anecdotally
     # annotating the tasks with a higher priority seems to help (but not fully solve) the issue at
     # the expense of higher cluster memory usage.
-    with bigquery_client(project_id, with_storage_api=True) as (
+    with bigquery_client(project_id) as (
         bq_client,
         bqs_client,
     ):
