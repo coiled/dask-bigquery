@@ -23,17 +23,17 @@ def bigquery_client(project_id=None, with_storage_api=False):
     """
 
     bq_storage_client = None
-    bq_client = bigquery.Client(project_id)
-    try:
-        if with_storage_api:
-            bq_storage_client = bigquery_storage.BigQueryReadClient(
-                credentials=bq_client._credentials
-            )
-            yield bq_client, bq_storage_client
-        else:
-            yield bq_client
-    finally:
-        bq_client.close()
+    with bigquery.Client(project_id) as bq_client:
+        try:
+            if with_storage_api:
+                bq_storage_client = bigquery_storage.BigQueryReadClient(
+                    credentials=bq_client._credentials
+                )
+                yield bq_client, bq_storage_client
+            else:
+                yield bq_client
+        finally:
+            bq_storage_client.transport.grpc_channel.close()
 
 
 def _stream_to_dfs(bqs_client, stream_name, schema, timeout):
