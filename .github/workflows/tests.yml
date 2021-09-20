@@ -1,6 +1,6 @@
 name: Tests
 
-on: [push, pull_request]
+on: push
 
 # When this workflow is queued, automatically cancel any previous running
 # or pending jobs from the same branch
@@ -45,9 +45,6 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_SA_KEY }}
           export_default_credentials: true
-
-      - name: Use gcloud CLI
-        run: gcloud info
 
       - name: Run tests
         run: pytest -v dask_bigquery
