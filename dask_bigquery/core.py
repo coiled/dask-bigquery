@@ -19,33 +19,29 @@ def bigquery_client(project_id=None):
     See  googleapis/google-cloud-python#9457
     and googleapis/gapic-generator-python#575 for reference.
     """
-
-    bq_storage_client = None
     with bigquery.Client(project_id) as bq_client:
-        try:
-            bq_storage_client = bigquery_storage.BigQueryReadClient(
-                credentials=bq_client._credentials
-            )
-            yield bq_client, bq_storage_client
-        finally:
-            bq_storage_client.transport.grpc_channel.close()
+        bq_storage_client = bigquery_storage.BigQueryReadClient(
+            credentials=bq_client._credentials
+        )
+        yield bq_client, bq_storage_client
+        bq_storage_client.transport.grpc_channel.close()
 
 
-def _stream_to_dfs(bqs_client, stream_name, schema, timeout):
+def _stream_to_dfs(bqs_client, stream_name, schema, read_kwargs):
     """Given a Storage API client and a stream name, yield all dataframes."""
     return [
         pyarrow.ipc.read_record_batch(
             pyarrow.py_buffer(message.arrow_record_batch.serialized_record_batch),
             schema,
         ).to_pandas()
-        for message in bqs_client.read_rows(name=stream_name, offset=0, timeout=timeout)
+        for message in bqs_client.read_rows(name=stream_name, offset=0, **read_kwargs)
     ]
 
 
 def bigquery_read(
     make_create_read_session_request: callable,
     project_id: str,
-    timeout: int,
+    read_kwargs: int,
     stream_name: str,
 ) -> pd.DataFrame:
     """Read a single batch of rows via BQ Storage API, in Arrow binary format.
@@ -65,7 +61,7 @@ def bigquery_read(
         schema = pyarrow.ipc.read_schema(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
         )
-        shards = _stream_to_dfs(bqs_client, stream_name, schema, timeout=timeout)
+        shards = _stream_to_dfs(bqs_client, stream_name, schema, read_kwargs)
         # NOTE: BQ Storage API can return empty streams
         if len(shards) == 0:
             shards = [schema.empty_table().to_pandas()]
@@ -78,7 +74,7 @@ def read_gbq(
     dataset_id: str,
     table_id: str,
     row_filter="",
-    read_timeout: int = 3600,
+    read_kwargs=None,
 ):
     """Read table as dask dataframe using BigQuery Storage API via Arrow format.
     If `partition_field` and `partitions` are specified, then the resulting dask dataframe
@@ -99,12 +95,9 @@ def read_gbq(
         dask dataframe
     See https://github.com/dask/dask/issues/3121 for additional context.
     """
-
-    with bigquery_client(project_id) as (
-        bq_client,
-        bqs_client,
-    ):
-        table_ref = bq_client.get_table(".".join((dataset_id, table_id)))
+    read_kwargs = read_kwargs or {}
+    with bigquery_client(project_id) as (bq_client, bqs_client):
+        table_ref = bq_client.get_table(f"{dataset_id}.{table_id}")
         if table_ref.table_type == "VIEW":
             raise TypeError("Table type VIEW not supported")
 
@@ -139,7 +132,7 @@ def read_gbq(
             dataset_id,
             table_id,
             row_filter,
-            read_timeout,
+            read_kwargs,
         )
 
         layer = DataFrameIOLayer(
@@ -150,7 +143,7 @@ def read_gbq(
                 bigquery_read,
                 make_create_read_session_request,
                 project_id,
-                read_timeout,
+                read_kwargs,
             ),
             label=label,
         )
