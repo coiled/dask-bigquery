@@ -1,3 +1,4 @@
+import os
 import random
 import uuid
 
@@ -9,9 +10,6 @@ from distributed.utils_test import client, loop  # noqa: F401
 from google.cloud import bigquery
 
 from dask_bigquery import read_gbq
-
-# These tests are run locally and assume the user is already athenticated.
-# It also assumes that the user has created a project called dask-bigquery.
 
 
 @pytest.fixture
@@ -31,7 +29,7 @@ def df():
 @pytest.fixture
 def dataset(df):
     "Push some data to BigQuery using pandas gbq"
-    project_id = "dask-bigquery"
+    project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID", "dask-bigquery")
     dataset_id = uuid.uuid4().hex
     table_id = "table_test"
     # push data to gbq
