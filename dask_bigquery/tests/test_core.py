@@ -50,7 +50,6 @@ def dataset(df):
 
 
 def test_read_gbq(df, dataset, client):
-    """Test simple read of data pushed to BigQuery using pandas-gbq"""
     project_id, dataset_id, table_id = dataset
     ddf = read_gbq(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
 
