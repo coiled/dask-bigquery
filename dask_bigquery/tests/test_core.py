@@ -73,7 +73,6 @@ def test_read_row_filter(df, dataset, client):
 
 
 def test_read_kwargs(df, dataset, client):
-    "Test read data with a `read_kwargs`"
     project_id, dataset_id, table_id = dataset
     ddf = read_gbq(
         project_id=project_id,
