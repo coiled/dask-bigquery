@@ -90,6 +90,8 @@ def read_gbq(
       BigQuery dataset within project
     table_id: str
       BigQuery table within dataset
+    row_filter: str
+      SQL text filtering statement to pass to `row_restriction`
     read_kwargs: dict
       kwargs to pass to read_rows()
 
@@ -103,8 +105,6 @@ def read_gbq(
         if table_ref.table_type == "VIEW":
             raise TypeError("Table type VIEW not supported")
 
-        # The protobuf types can't be pickled (may be able to tweak w/ copyreg),
-        # so instead use a generator func.
         def make_create_read_session_request(row_filter=""):
             return bigquery_storage.types.CreateReadSessionRequest(
                 max_stream_count=100,  # 0 -> use as many streams as BQ Storage will provide
