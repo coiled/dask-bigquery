@@ -73,3 +73,17 @@ def test_read_row_filter(df, dataset, client):
     assert list(ddf.columns) == ["name", "number", "idx"]
     assert ddf.npartitions == 2
     assert assert_eq(ddf.set_index("idx").loc[:4], df.set_index("idx").loc[:4])
+
+
+def test_read_kwargs(df, dataset, client):
+    "Test read data with a `read_kwargs`"
+    project_id, dataset_id, table_id = dataset
+    ddf = read_gbq(
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id=table_id,
+        read_kwargs={"timeout": 1e-12},
+    )
+
+    with pytest.raises(Exception, match="504 Deadline Exceeded"):
+        ddf.compute()
