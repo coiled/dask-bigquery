@@ -41,20 +41,23 @@ def _stream_to_dfs(bqs_client, stream_name, schema, read_kwargs):
 def bigquery_read(
     make_create_read_session_request: callable,
     project_id: str,
-    read_kwargs: int,
+    read_kwargs: dict,
     stream_name: str,
 ) -> pd.DataFrame:
     """Read a single batch of rows via BQ Storage API, in Arrow binary format.
-    Args:
-        project_id: BigQuery project
-        create_read_session_request: kwargs to pass to `bqs_client.create_read_session`
-        as `request`
-        stream_name: BigQuery Storage API Stream "name".
-            NOTE: Please set if reading from Storage API without any `row_restriction`.
+
+    Parameters
+    ----------
+    create_read_session_request: callable
+      kwargs to pass to `bqs_client.create_read_session` as `request`
+    project_id: str
+      Name of the BigQuery project.
+    read_kwargs: dict
+      kwargs to pass to read_rows()
+    stream_name: str
+      BigQuery Storage API Stream "name"
+      NOTE: Please set if reading from Storage API without any `row_restriction`.
             https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1beta1#stream
-    NOTE: `partition_field` and `stream_name` kwargs are mutually exclusive.
-    Adapted from
-    https://github.com/googleapis/python-bigquery-storage/blob/a0fc0af5b4447ce8b50c365d4d081b9443b8490e/google/cloud/bigquery_storage_v1/reader.py.
     """
     with bigquery_client(project_id) as (bq_client, bqs_client):
         session = bqs_client.create_read_session(make_create_read_session_request())
@@ -74,26 +77,25 @@ def read_gbq(
     dataset_id: str,
     table_id: str,
     row_filter="",
-    read_kwargs=None,
+    read_kwargs: dict = None,
 ):
     """Read table as dask dataframe using BigQuery Storage API via Arrow format.
-    If `partition_field` and `partitions` are specified, then the resulting dask dataframe
-    will be partitioned along the same boundaries. Otherwise, partitions will be approximately
-    balanced according to BigQuery stream allocation logic.
-    If `partition_field` is specified but not included in `fields` (either implicitly by requesting
-    all fields, or explicitly by inclusion in the list `fields`), then it will still be included
-    in the query in order to have it available for dask dataframe indexing.
-    Args:
-        project_id: BigQuery project
-        dataset_id: BigQuery dataset within project
-        table_id: BigQuery table within dataset
-        partition_field: to specify filters of form "WHERE {partition_field} = ..."
-        partitions: all values to select of `partition_field`
-        fields: names of the fields (columns) to select (default None to "SELECT *")
-        read_timeout: # of seconds an individual read request has before timing out
-    Returns:
-        dask dataframe
-    See https://github.com/dask/dask/issues/3121 for additional context.
+    Partitions will be approximately balanced according to BigQuery stream allocation logic.
+
+    Parameters
+    ----------
+    project_id: str
+      Name of the BigQuery project.
+    dataset_id: str
+      BigQuery dataset within project
+    table_id: str
+      BigQuery table within dataset
+    read_kwargs: dict
+      kwargs to pass to read_rows()
+
+    Returns
+    -------
+        Dask DataFrame
     """
     read_kwargs = read_kwargs or {}
     with bigquery_client(project_id) as (bq_client, bqs_client):
@@ -101,8 +103,8 @@ def read_gbq(
         if table_ref.table_type == "VIEW":
             raise TypeError("Table type VIEW not supported")
 
-        # The protobuf types can't be pickled (may be able to tweak w/ copyreg), so instead use a
-        # generator func.
+        # The protobuf types can't be pickled (may be able to tweak w/ copyreg),
+        # so instead use a generator func.
         def make_create_read_session_request(row_filter=""):
             return bigquery_storage.types.CreateReadSessionRequest(
                 max_stream_count=100,  # 0 -> use as many streams as BQ Storage will provide
