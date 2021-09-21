@@ -28,7 +28,6 @@ def df():
 
 @pytest.fixture
 def dataset(df):
-    "Push some data to BigQuery using pandas gbq"
     project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID", "dask-bigquery")
     dataset_id = uuid.uuid4().hex
     table_id = "table_test"
