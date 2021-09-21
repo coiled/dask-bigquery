@@ -72,7 +72,7 @@ def test_read_row_filter(df, dataset, client):
     assert assert_eq(ddf.set_index("idx").loc[:4], df.set_index("idx").loc[:4])
 
 
-def test_read_kwargs(df, dataset, client):
+def test_read_kwargs(dataset, client):
     project_id, dataset_id, table_id = dataset
     ddf = read_gbq(
         project_id=project_id,
