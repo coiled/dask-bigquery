@@ -59,7 +59,6 @@ def test_read_gbq(df, dataset, client):
 
 
 def test_read_row_filter(df, dataset, client):
-    "Test read data with a row restriction providing `row_filter`"
     project_id, dataset_id, table_id = dataset
     ddf = read_gbq(
         project_id=project_id,
