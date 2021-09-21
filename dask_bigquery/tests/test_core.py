@@ -58,3 +58,18 @@ def test_read_gbq(df, dataset, client):
     assert list(ddf.columns) == ["name", "number", "idx"]
     assert ddf.npartitions == 2
     assert assert_eq(ddf.set_index("idx"), df.set_index("idx"))
+
+
+def test_read_row_filter(df, dataset, client):
+    "Test read data with a row restriction providing `row_filter`"
+    project_id, dataset_id, table_id = dataset
+    ddf = read_gbq(
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id=table_id,
+        row_filter="idx < 5",
+    )
+
+    assert list(ddf.columns) == ["name", "number", "idx"]
+    assert ddf.npartitions == 2
+    assert assert_eq(ddf.set_index("idx").loc[:4], df.set_index("idx").loc[:4])
