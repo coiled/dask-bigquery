@@ -85,7 +85,7 @@ def read_gbq(
     Parameters
     ----------
     project_id: str
-      Name of the BigQuery project.
+      Name of the BigQuery project id.
     dataset_id: str
       BigQuery dataset within project
     table_id: str
