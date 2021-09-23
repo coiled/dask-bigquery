@@ -22,6 +22,14 @@ ddf = dask_bigquery.read_gbq(
 ddf.head()
 ```
 
+## Run tests locally
+
+To run the tests locally you need to be authenticated and have a project created on that account. If you're using a service account, when created you need to select the role of "BigQuery Admin" in the section "Grant this service account access to project". 
+
+In the directory `dask_bigquery/tests` you can run the tests by doing:
+
+`pytest --project_id your_project_id test_core.py`
+
 ## History
 
 This project stems from the discussion in
