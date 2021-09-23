@@ -4,10 +4,7 @@
 
 Read data from Google BigQuery with Dask
 
-**Note:** This project was based on the contributions from @bnaul, @JacobHayes and @mikss. The intial inspiration can be found in a [dask_bigquery gist](https://gist.github.com/bnaul/4819f045ccbee160b60a530b6cfc0c98#file-dask_bigquery-py)
-
 ## Installation
-
 
 ## Example
 
@@ -17,13 +14,21 @@ Read data from Google BigQuery with Dask
 import dask_bigquery
 
 ddf = dask_bigquery.read_gbq(
-                project_id="your_project_id",
-                dataset_id="your_dataset",
-                table_id="your_table",
-                )
+    project_id="your_project_id",
+    dataset_id="your_dataset",
+    table_id="your_table",
+)
 
 ddf.head()
 ```
+
+## History
+
+This project stems from the discussion in
+[this Dask issue](https://github.com/dask/dask/issues/3121) and
+[this initial implementation](https://gist.github.com/bnaul/4819f045ccbee160b60a530b6cfc0c98#file-dask_bigquery-py)
+developed by [Brett Naul](https://github.com/bnaul), [Jacob Hayes](https://github.com/JacobHayes),
+and [Steven Soojin Kim](https://github.com/mikss).
 
 ## License 
 

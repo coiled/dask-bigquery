@@ -13,10 +13,10 @@ from google.cloud import bigquery, bigquery_storage
 
 
 @contextmanager
-def bigquery_client(project_id=None):
+def bigquery_clients(project_id):
     """This context manager is a temporary solution until there is an
     upstream solution to handle this.
-    See  googleapis/google-cloud-python#9457
+    See googleapis/google-cloud-python#9457
     and googleapis/gapic-generator-python#575 for reference.
     """
     with bigquery.Client(project_id) as bq_client:
@@ -59,7 +59,7 @@ def bigquery_read(
       NOTE: Please set if reading from Storage API without any `row_restriction`.
             https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1beta1#stream
     """
-    with bigquery_client(project_id) as (bq_client, bqs_client):
+    with bigquery_clients(project_id) as (_, bqs_client):
         session = bqs_client.create_read_session(make_create_read_session_request())
         schema = pyarrow.ipc.read_schema(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
@@ -100,7 +100,7 @@ def read_gbq(
         Dask DataFrame
     """
     read_kwargs = read_kwargs or {}
-    with bigquery_client(project_id) as (bq_client, bqs_client):
+    with bigquery_clients(project_id) as (bq_client, bqs_client):
         table_ref = bq_client.get_table(f"{dataset_id}.{table_id}")
         if table_ref.table_type == "VIEW":
             raise TypeError("Table type VIEW not supported")
