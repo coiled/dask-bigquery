@@ -9,7 +9,11 @@ from dask.base import tokenize
 from dask.dataframe.core import new_dd_object
 from dask.highlevelgraph import HighLevelGraph
 from dask.layers import DataFrameIOLayer
+from google.api_core import client_info as rest_client_info
+from google.api_core.gapic_v1 import client_info as grpc_client_info
 from google.cloud import bigquery, bigquery_storage
+
+import dask_bigquery
 
 
 @contextmanager
@@ -19,9 +23,17 @@ def bigquery_clients(project_id):
     See googleapis/google-cloud-python#9457
     and googleapis/gapic-generator-python#575 for reference.
     """
-    with bigquery.Client(project_id) as bq_client:
+    bq_client_info = rest_client_info.ClientInfo(
+        user_agent=f"dask-bigquery/{dask_bigquery.__version__}"
+    )
+    bqstorage_client_info = grpc_client_info.ClientInfo(
+        user_agent=f"dask-bigquery/{dask_bigquery.__version__}"
+    )
+
+    with bigquery.Client(project_id, client_info=bq_client_info) as bq_client:
         bq_storage_client = bigquery_storage.BigQueryReadClient(
-            credentials=bq_client._credentials
+            credentials=bq_client._credentials,
+            client_info=bqstorage_client_info,
         )
         yield bq_client, bq_storage_client
         bq_storage_client.transport.grpc_channel.close()
