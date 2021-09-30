@@ -13,12 +13,13 @@ from google.api_core import client_info as rest_client_info
 from google.api_core.gapic_v1 import client_info as grpc_client_info
 from google.cloud import bigquery, bigquery_storage
 from google.oauth2 import service_account
+from google.oauth2.service_account import Credentials
 
 import dask_bigquery
 
 
 @contextmanager
-def bigquery_clients(project_id, cred_fpath):
+def bigquery_clients(project_id, credentials):
     """This context manager is a temporary solution until there is an
     upstream solution to handle this.
     See googleapis/google-cloud-python#9457
@@ -30,11 +31,6 @@ def bigquery_clients(project_id, cred_fpath):
     bqstorage_client_info = grpc_client_info.ClientInfo(
         user_agent=f"dask-bigquery/{dask_bigquery.__version__}"
     )
-
-    if cred_fpath:
-        credentials = service_account.Credentials.from_service_account_file(cred_fpath)
-    else:
-        credentials = cred_fpath  # if no path set to None to try read default
 
     with bigquery.Client(
         project_id, credentials=credentials, client_info=bq_client_info
@@ -61,7 +57,7 @@ def _stream_to_dfs(bqs_client, stream_name, schema, read_kwargs):
 def bigquery_read(
     make_create_read_session_request: callable,
     project_id: str,
-    cred_fpath: str,
+    credentials: Credentials,
     read_kwargs: dict,
     stream_name: str,
 ) -> pd.DataFrame:
@@ -80,7 +76,7 @@ def bigquery_read(
       NOTE: Please set if reading from Storage API without any `row_restriction`.
             https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1beta1#stream
     """
-    with bigquery_clients(project_id, cred_fpath) as (_, bqs_client):
+    with bigquery_clients(project_id, credentials) as (_, bqs_client):
         session = bqs_client.create_read_session(make_create_read_session_request())
         schema = pyarrow.ipc.read_schema(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
@@ -125,7 +121,13 @@ def read_gbq(
         Dask DataFrame
     """
     read_kwargs = read_kwargs or {}
-    with bigquery_clients(project_id, cred_fpath) as (bq_client, bqs_client):
+
+    if cred_fpath:
+        credentials = service_account.Credentials.from_service_account_file(cred_fpath)
+    else:
+        credentials = cred_fpath  # if no path set to None to try read default
+
+    with bigquery_clients(project_id, credentials) as (bq_client, bqs_client):
         table_ref = bq_client.get_table(f"{dataset_id}.{table_id}")
         if table_ref.table_type == "VIEW":
             raise TypeError("Table type VIEW not supported")
@@ -170,7 +172,7 @@ def read_gbq(
                 bigquery_read,
                 make_create_read_session_request,
                 project_id,
-                cred_fpath,
+                credentials,
                 read_kwargs,
             ),
             label=label,
