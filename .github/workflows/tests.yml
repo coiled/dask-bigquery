@@ -1,6 +1,9 @@
 name: Tests
 
-on: push
+on:
+  push:
+    branches:
+      - "*"
 
 # When this workflow is queued, automatically cancel any previous running
 # or pending jobs from the same branch
