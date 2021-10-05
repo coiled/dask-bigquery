@@ -48,13 +48,15 @@ def dataset(df):
         )
 
 
-def test_read_gbq(df, dataset, client):
-    project_id, dataset_id, table_id = dataset
-    ddf = read_gbq(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
+def test_read_gbq(df, dataset):
+    from distributed import Client
+    with Client(n_workers=2, processes=True) as client:
+        project_id, dataset_id, table_id = dataset
+        ddf = read_gbq(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
 
-    assert list(ddf.columns) == ["name", "number", "idx"]
-    assert ddf.npartitions == 2
-    assert assert_eq(ddf.set_index("idx"), df.set_index("idx"))
+        assert list(ddf.columns) == ["name", "number", "idx"]
+        assert ddf.npartitions == 2
+        assert assert_eq(ddf.set_index("idx"), df.set_index("idx"))
 
 
 def test_read_row_filter(df, dataset, client):
