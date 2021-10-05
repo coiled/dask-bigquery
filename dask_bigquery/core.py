@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 from contextlib import contextmanager
 from functools import partial
 
@@ -13,7 +15,6 @@ from google.api_core import client_info as rest_client_info
 from google.api_core.gapic_v1 import client_info as grpc_client_info
 from google.cloud import bigquery, bigquery_storage
 from google.oauth2 import service_account
-from google.oauth2.service_account import Credentials
 
 import dask_bigquery
 
@@ -57,8 +58,8 @@ def _stream_to_dfs(bqs_client, stream_name, schema, read_kwargs):
 def bigquery_read(
     make_create_read_session_request: callable,
     project_id: str,
-    credentials: Credentials,
     read_kwargs: dict,
+    creds: dict,
     stream_name: str,
 ) -> pd.DataFrame:
     """Read a single batch of rows via BQ Storage API, in Arrow binary format.
@@ -71,11 +72,14 @@ def bigquery_read(
       Name of the BigQuery project.
     read_kwargs: dict
       kwargs to pass to read_rows()
+    creds: dict
+      credentials dictionary
     stream_name: str
       BigQuery Storage API Stream "name"
       NOTE: Please set if reading from Storage API without any `row_restriction`.
             https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1beta1#stream
     """
+    credentials = service_account.Credentials.from_service_account_info(creds)
     with bigquery_clients(project_id, credentials) as (_, bqs_client):
         session = bqs_client.create_read_session(make_create_read_session_request())
         schema = pyarrow.ipc.read_schema(
@@ -95,7 +99,6 @@ def read_gbq(
     table_id: str,
     row_filter="",
     *,
-    cred_fpath: str = None,
     read_kwargs: dict = None,
 ):
     """Read table as dask dataframe using BigQuery Storage API via Arrow format.
@@ -111,8 +114,6 @@ def read_gbq(
       BigQuery table within dataset
     row_filter: str
       SQL text filtering statement to pass to `row_restriction`
-    cred_fpath: str
-        path for the service account key json file.
     read_kwargs: dict
       kwargs to pass to read_rows()
 
@@ -122,10 +123,13 @@ def read_gbq(
     """
     read_kwargs = read_kwargs or {}
 
-    if cred_fpath:
-        credentials = service_account.Credentials.from_service_account_file(cred_fpath)
-    else:
-        credentials = cred_fpath  # if no path set to None to try read default
+    creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    if creds_path is None:
+        raise ValueError("No credentials found")
+    with open(creds_path) as f:
+        creds = json.load(f)
+
+    credentials = service_account.Credentials.from_service_account_file(creds_path)
 
     with bigquery_clients(project_id, credentials) as (bq_client, bqs_client):
         table_ref = bq_client.get_table(f"{dataset_id}.{table_id}")
@@ -172,8 +176,8 @@ def read_gbq(
                 bigquery_read,
                 make_create_read_session_request,
                 project_id,
-                credentials,
                 read_kwargs,
+                creds,
             ),
             label=label,
         )
