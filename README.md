@@ -8,7 +8,11 @@ Read data from Google BigQuery with Dask
 
 ## Example
 
-`dask-bigquery` assumes that you are already authenticated. 
+`dask-bigquery` assumes that you are already authenticated and have an environment variable
+
+```
+GOOGLE_APPLICATION_CREDENTIALS=path_to/creds.json
+```
 
 ```python
 import dask_bigquery
