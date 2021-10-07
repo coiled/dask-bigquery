@@ -5,6 +5,7 @@ import os
 from contextlib import contextmanager
 from functools import partial
 
+import jwt
 import pandas as pd
 import pyarrow
 from dask.base import tokenize
@@ -59,7 +60,7 @@ def bigquery_read(
     make_create_read_session_request: callable,
     project_id: str,
     read_kwargs: dict,
-    creds: dict,
+    cred_token,
     stream_name: str,
 ) -> pd.DataFrame:
     """Read a single batch of rows via BQ Storage API, in Arrow binary format.
@@ -79,6 +80,8 @@ def bigquery_read(
       NOTE: Please set if reading from Storage API without any `row_restriction`.
             https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1beta1#stream
     """
+    creds = jwt.decode(cred_token, "secret", algorithms=["HS256"])
+
     credentials = service_account.Credentials.from_service_account_info(creds)
     with bigquery_clients(project_id, credentials) as (_, bqs_client):
         session = bqs_client.create_read_session(make_create_read_session_request())
@@ -129,6 +132,8 @@ def read_gbq(
     with open(creds_path) as f:
         creds = json.load(f)
 
+    cred_token = jwt.encode(creds, "secret", algorithm="HS256")
+
     credentials = service_account.Credentials.from_service_account_file(creds_path)
 
     with bigquery_clients(project_id, credentials) as (bq_client, bqs_client):
@@ -177,7 +182,7 @@ def read_gbq(
                 make_create_read_session_request,
                 project_id,
                 read_kwargs,
-                creds,
+                cred_token,
             ),
             label=label,
         )
