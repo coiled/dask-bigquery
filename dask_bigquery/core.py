@@ -60,7 +60,7 @@ def bigquery_read(
     make_create_read_session_request: callable,
     project_id: str,
     read_kwargs: dict,
-    cred_token,
+    cred_token: str,
     stream_name: str,
 ) -> pd.DataFrame:
     """Read a single batch of rows via BQ Storage API, in Arrow binary format.
