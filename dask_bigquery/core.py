@@ -90,7 +90,7 @@ def read_gbq(
     dataset_id: str,
     table_id: str,
     row_filter: str = "",
-    columns: List[str] = (),
+    columns: List[str] = None,
     read_kwargs: dict = None,
 ):
     """Read table as dask dataframe using BigQuery Storage API via Arrow format.
@@ -106,7 +106,7 @@ def read_gbq(
       BigQuery table within dataset
     row_filter: str
       SQL text filtering statement to pass to `row_restriction`
-    columns: list
+    columns: list[str]
       list of columns to load from the table
     read_kwargs: dict
       kwargs to pass to read_rows()
