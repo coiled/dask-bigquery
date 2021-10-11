@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from functools import partial
+from typing import List
 
 import pandas as pd
 import pyarrow
@@ -88,7 +89,8 @@ def read_gbq(
     project_id: str,
     dataset_id: str,
     table_id: str,
-    row_filter="",
+    row_filter: str = "",
+    columns: List[str] = (),
     read_kwargs: dict = None,
 ):
     """Read table as dask dataframe using BigQuery Storage API via Arrow format.
@@ -104,6 +106,8 @@ def read_gbq(
       BigQuery table within dataset
     row_filter: str
       SQL text filtering statement to pass to `row_restriction`
+    columns: list
+      list of columns to load from the table
     read_kwargs: dict
       kwargs to pass to read_rows()
 
@@ -125,6 +129,7 @@ def read_gbq(
                     data_format=bigquery_storage.types.DataFormat.ARROW,
                     read_options=bigquery_storage.types.ReadSession.TableReadOptions(
                         row_restriction=row_filter,
+                        selected_fields=columns
                     ),
                     table=table_ref.to_bqstorage(),
                 ),
