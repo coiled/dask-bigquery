@@ -2,6 +2,7 @@ import os
 import random
 import uuid
 
+import google.auth
 import pandas as pd
 import pytest
 from dask.dataframe.utils import assert_eq
@@ -29,6 +30,8 @@ def df():
 @pytest.fixture
 def dataset(df):
     project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
+    if not project_id:
+        credentials, project_id = google.auth.default()
     dataset_id = uuid.uuid4().hex
     table_id = "table_test"
     # push data to gbq
