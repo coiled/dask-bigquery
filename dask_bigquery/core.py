@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from functools import partial
+from typing import Union
 
 import pandas as pd
 import pyarrow
@@ -85,10 +86,8 @@ def bigquery_read(
 
 
 def read_gbq(
-    project_id: str,
-    dataset_id: str,
-    table_id: str,
-    row_filter: str = "",
+    table: Union[bigquery.table.Table, bigquery.table.TableReference, str],
+    row_filter="",
     columns: list[str] = None,
     read_kwargs: dict = None,
 ):
@@ -97,12 +96,9 @@ def read_gbq(
 
     Parameters
     ----------
-    project_id: str
-      Name of the BigQuery project id.
-    dataset_id: str
-      BigQuery dataset within project
-    table_id: str
-      BigQuery table within dataset
+    table: Union[bigquery.table.Table, bigquery.table.TableReference, str]
+      BigQuery table to read. If a string is passed in, this method attempts to create a
+      table reference from a string using `google.cloud.bigquery.table.TableReference.from_string`
     row_filter: str
       SQL text filtering statement to pass to `row_restriction`
     columns: list[str]
@@ -115,21 +111,22 @@ def read_gbq(
         Dask DataFrame
     """
     read_kwargs = read_kwargs or {}
-    with bigquery_clients(project_id) as (bq_client, bqs_client):
-        table_ref = bq_client.get_table(f"{dataset_id}.{table_id}")
-        if table_ref.table_type == "VIEW":
+    table = bigquery.Table(table)
+    with bigquery_clients(table.project) as (bq_client, bqs_client):
+        table = bq_client.get_table(table)
+        if table.table_type == "VIEW":
             raise TypeError("Table type VIEW not supported")
 
         def make_create_read_session_request(row_filter=""):
             return bigquery_storage.types.CreateReadSessionRequest(
                 max_stream_count=100,  # 0 -> use as many streams as BQ Storage will provide
-                parent=f"projects/{project_id}",
+                parent=f"projects/{table.project}",
                 read_session=bigquery_storage.types.ReadSession(
                     data_format=bigquery_storage.types.DataFormat.ARROW,
                     read_options=bigquery_storage.types.ReadSession.TableReadOptions(
                         row_restriction=row_filter, selected_fields=columns
                     ),
-                    table=table_ref.to_bqstorage(),
+                    table=table.to_bqstorage(),
                 ),
             )
 
@@ -145,9 +142,9 @@ def read_gbq(
 
         label = "read-gbq-"
         output_name = label + tokenize(
-            project_id,
-            dataset_id,
-            table_id,
+            table.project,
+            table.dataset_id,
+            table.table_id,
             row_filter,
             read_kwargs,
         )
@@ -159,7 +156,7 @@ def read_gbq(
             partial(
                 bigquery_read,
                 make_create_read_session_request,
-                project_id,
+                table.project,
                 read_kwargs,
             ),
             label=label,

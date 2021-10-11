@@ -28,7 +28,7 @@ def df():
 
 
 @pytest.fixture
-def dataset(df):
+def table(df):
     project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
     if not project_id:
         credentials, project_id = google.auth.default()
@@ -42,7 +42,7 @@ def dataset(df):
         chunksize=5,
         if_exists="append",
     )
-    yield (project_id, dataset_id, table_id)
+    yield ".".join((project_id, dataset_id, table_id))
 
     with bigquery.Client() as bq_client:
         bq_client.delete_dataset(
@@ -51,21 +51,17 @@ def dataset(df):
         )
 
 
-def test_read_gbq(df, dataset, client):
-    project_id, dataset_id, table_id = dataset
-    ddf = read_gbq(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
+def test_read_gbq(df, table, client):
+    ddf = read_gbq(table=table)
 
     assert list(ddf.columns) == ["name", "number", "idx"]
     assert ddf.npartitions == 2
     assert assert_eq(ddf.set_index("idx"), df.set_index("idx"))
 
 
-def test_read_row_filter(df, dataset, client):
-    project_id, dataset_id, table_id = dataset
+def test_read_row_filter(df, table, client):
     ddf = read_gbq(
-        project_id=project_id,
-        dataset_id=dataset_id,
-        table_id=table_id,
+        table=table,
         row_filter="idx < 5",
     )
 
@@ -74,12 +70,9 @@ def test_read_row_filter(df, dataset, client):
     assert assert_eq(ddf.set_index("idx").loc[:4], df.set_index("idx").loc[:4])
 
 
-def test_read_kwargs(dataset, client):
-    project_id, dataset_id, table_id = dataset
+def test_read_kwargs(table, client):
     ddf = read_gbq(
-        project_id=project_id,
-        dataset_id=dataset_id,
-        table_id=table_id,
+        table=table,
         read_kwargs={"timeout": 1e-12},
     )
 
