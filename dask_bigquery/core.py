@@ -128,8 +128,7 @@ def read_gbq(
                 read_session=bigquery_storage.types.ReadSession(
                     data_format=bigquery_storage.types.DataFormat.ARROW,
                     read_options=bigquery_storage.types.ReadSession.TableReadOptions(
-                        row_restriction=row_filter,
-                        selected_fields=columns
+                        row_restriction=row_filter, selected_fields=columns
                     ),
                     table=table_ref.to_bqstorage(),
                 ),
