@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from functools import partial
-from typing import List
 
 import pandas as pd
 import pyarrow
@@ -90,7 +89,7 @@ def read_gbq(
     dataset_id: str,
     table_id: str,
     row_filter: str = "",
-    columns: List[str] = None,
+    columns: list[str] = None,
     read_kwargs: dict = None,
 ):
     """Read table as dask dataframe using BigQuery Storage API via Arrow format.
