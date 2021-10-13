@@ -82,3 +82,17 @@ def test_read_kwargs(dataset, client):
 
     with pytest.raises(Exception, match="504 Deadline Exceeded"):
         ddf.compute()
+
+
+def test_read_columns(df, dataset, client):
+    project_id, dataset_id, table_id = dataset
+    assert df.shape[1] > 1, "Test data should have multiple columns"
+
+    columns = ["name"]
+    ddf = read_gbq(
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id=table_id,
+        columns=columns,
+    )
+    assert list(ddf.columns) == columns
