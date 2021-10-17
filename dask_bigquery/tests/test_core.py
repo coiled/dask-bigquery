@@ -80,15 +80,12 @@ def test_read_kwargs(table, client):
         ddf.compute()
 
 
-def test_read_columns(df, dataset, client):
-    project_id, dataset_id, table_id = dataset
+def test_read_columns(df, table, client):
     assert df.shape[1] > 1, "Test data should have multiple columns"
 
     columns = ["name"]
     ddf = read_gbq(
-        project_id=project_id,
-        dataset_id=dataset_id,
-        table_id=table_id,
+        table=table,
         columns=columns,
     )
     assert list(ddf.columns) == columns
