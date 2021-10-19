@@ -122,7 +122,7 @@ def read_gbq(
 
         def make_create_read_session_request(row_filter=""):
             return bigquery_storage.types.CreateReadSessionRequest(
-                max_stream_count=100,  # 0 -> use as many streams as BQ Storage will provide
+                max_stream_count=0,  # 0 -> use as many streams as BQ Storage will provide
                 parent=f"projects/{project_id}",
                 read_session=bigquery_storage.types.ReadSession(
                     data_format=bigquery_storage.types.DataFormat.ARROW,
