@@ -10,5 +10,5 @@ dependencies:
   - pytest
   - grpcio
   - pandas-gbq
-  - google-cloud-bigquery
+  - google-cloud-bigquery>=2.11.0
   - google-cloud-bigquery-storage
