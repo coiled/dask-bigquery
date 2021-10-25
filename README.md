@@ -6,6 +6,12 @@ Read data from Google BigQuery with Dask
 
 ## Installation
 
+`dask-bigquery` can be installed with `pip`:
+
+```
+pip install dask-bigquery
+```
+
 ## Example
 
 `dask-bigquery` assumes that you are already authenticated. 
