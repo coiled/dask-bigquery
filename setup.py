@@ -7,7 +7,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="dask-bigquery",
-    version="0.0.1",
+    version="2021.10.0",
     description="Dask + BigQuery intergration",
     license="BSD",
     packages=["dask_bigquery"],
