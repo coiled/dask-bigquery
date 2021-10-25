@@ -83,7 +83,7 @@ def test_read_kwargs(dataset, client):
         read_kwargs={"timeout": 1e-12},
     )
 
-    with pytest.raises(Exception, match="504 Deadline Exceeded"):
+    with pytest.raises(Exception, match="Deadline Exceeded"):
         ddf.compute()
 
 
