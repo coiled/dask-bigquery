@@ -15,7 +15,9 @@ setup(
     long_description_content_type="text/markdown",
     python_requires=">=3.7",
     install_requires=open("requirements.txt").read().strip().split("\n"),
-    extras_require={"test": ["pytest", "pandas-gbq", "distributed"]},
+    extras_require={
+        "test": ["pytest", "pandas-gbq", "distributed", "google-auth>=1.30.0"]
+    },
     include_package_data=True,
     zip_safe=False,
 )
