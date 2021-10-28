@@ -1,0 +1,7 @@
+recursive-include dask_bigquery *.py
+
+include setup.py
+include README.md
+include LICENSE
+include MANIFEST.in
+include requirements.txt

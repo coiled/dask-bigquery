@@ -2,6 +2,7 @@ import os
 import random
 import uuid
 
+import google.auth
 import pandas as pd
 import pytest
 from dask.dataframe.utils import assert_eq
@@ -29,6 +30,8 @@ def df():
 @pytest.fixture
 def dataset(df):
     project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
+    if not project_id:
+        credentials, project_id = google.auth.default()
     dataset_id = uuid.uuid4().hex
     table_id = "table_test"
     # push data to gbq
@@ -80,5 +83,19 @@ def test_read_kwargs(dataset, client):
         read_kwargs={"timeout": 1e-12},
     )
 
-    with pytest.raises(Exception, match="504 Deadline Exceeded"):
+    with pytest.raises(Exception, match="Deadline Exceeded"):
         ddf.compute()
+
+
+def test_read_columns(df, dataset, client):
+    project_id, dataset_id, table_id = dataset
+    assert df.shape[1] > 1, "Test data should have multiple columns"
+
+    columns = ["name"]
+    ddf = read_gbq(
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id=table_id,
+        columns=columns,
+    )
+    assert list(ddf.columns) == columns

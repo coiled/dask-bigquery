@@ -7,7 +7,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="dask-bigquery",
-    version="0.0.1",
+    version="2021.10.1",
     description="Dask + BigQuery intergration",
     license="BSD",
     packages=["dask_bigquery"],
@@ -15,7 +15,9 @@ setup(
     long_description_content_type="text/markdown",
     python_requires=">=3.7",
     install_requires=open("requirements.txt").read().strip().split("\n"),
-    extras_require={"test": ["pytest"]},
+    extras_require={
+        "test": ["pytest", "pandas-gbq", "distributed", "google-auth>=1.30.0"]
+    },
     include_package_data=True,
     zip_safe=False,
 )

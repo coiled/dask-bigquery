@@ -1,7 +1,5 @@
 dask
-distributed
 google-cloud-bigquery >= 2.11.0
 google-cloud-bigquery-storage
 pandas
-pandas-gbq
 pyarrow
