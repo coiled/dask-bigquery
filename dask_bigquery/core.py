@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import json
 import os
 from contextlib import contextmanager
 from functools import partial
 
-import jwt
+import google.auth.transport.requests
+import google.oauth2.credentials
 import pandas as pd
 import pyarrow
 from dask.base import tokenize
@@ -80,9 +80,9 @@ def bigquery_read(
       NOTE: Please set if reading from Storage API without any `row_restriction`.
             https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1beta1#stream
     """
-    creds = jwt.decode(cred_token, "secret", algorithms=["HS256"])
 
-    credentials = service_account.Credentials.from_service_account_info(creds)
+    credentials = google.oauth2.credentials.Credentials(cred_token)
+
     with bigquery_clients(project_id, credentials) as (_, bqs_client):
         session = bqs_client.create_read_session(make_create_read_session_request())
         schema = pyarrow.ipc.read_schema(
@@ -131,12 +131,14 @@ def read_gbq(
     creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
     if creds_path is None:
         raise ValueError("No credentials found")
-    with open(creds_path) as f:
-        creds = json.load(f)
 
-    cred_token = jwt.encode(creds, "secret", algorithm="HS256")
+    credentials = service_account.Credentials.from_service_account_file(
+        creds_path, scopes=["https://www.googleapis.com/auth/cloud-platform"]
+    )
 
-    credentials = service_account.Credentials.from_service_account_file(creds_path)
+    auth_req = google.auth.transport.requests.Request()
+    credentials.refresh(auth_req)
+    cred_token = credentials.token
 
     with bigquery_clients(project_id, credentials) as (bq_client, bqs_client):
         table_ref = bq_client.get_table(f"{dataset_id}.{table_id}")
