@@ -133,7 +133,7 @@ def read_gbq(
         raise ValueError("No credentials found")
 
     credentials = service_account.Credentials.from_service_account_file(
-        creds_path, scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        creds_path, scopes=["https://www.googleapis.com/auth/bigquery.readonly"]
     )
 
     auth_req = google.auth.transport.requests.Request()
