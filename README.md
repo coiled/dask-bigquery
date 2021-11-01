@@ -14,11 +14,7 @@ pip install dask-bigquery
 
 ## Example
 
-`dask-bigquery` assumes that you are already authenticated and have an environment variable
-
-```
-GOOGLE_APPLICATION_CREDENTIALS=path_to/creds.json
-```
+`dask-bigquery` assumes that you are already authenticated.
 
 ```python
 import dask_bigquery
