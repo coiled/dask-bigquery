@@ -21,7 +21,7 @@ import dask_bigquery
 
 
 @contextmanager
-def bigquery_clients(project_id, credentials):
+def bigquery_clients(project_id, credentials=None):
     """This context manager is a temporary solution until there is an
     upstream solution to handle this.
     See googleapis/google-cloud-python#9457
@@ -73,17 +73,20 @@ def bigquery_read(
       Name of the BigQuery project.
     read_kwargs: dict
       kwargs to pass to read_rows()
-    creds: dict
-      credentials dictionary
     stream_name: str
       BigQuery Storage API Stream "name"
       NOTE: Please set if reading from Storage API without any `row_restriction`.
             https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1beta1#stream
+    cred_token: str
+      google_auth bearer token
     """
 
-    credentials = google.oauth2.credentials.Credentials(cred_token)
+    if cred_token:
+        credentials = google.oauth2.credentials.Credentials(cred_token)
+    else:
+        credentials = None
 
-    with bigquery_clients(project_id, credentials) as (_, bqs_client):
+    with bigquery_clients(project_id, credentials=credentials) as (_, bqs_client):
         session = bqs_client.create_read_session(make_create_read_session_request())
         schema = pyarrow.ipc.read_schema(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
@@ -103,6 +106,7 @@ def read_gbq(
     row_filter: str = "",
     columns: list[str] = None,
     read_kwargs: dict = None,
+    fwd_creds: bool = False,
 ):
     """Read table as dask dataframe using BigQuery Storage API via Arrow format.
     Partitions will be approximately balanced according to BigQuery stream allocation logic.
@@ -121,6 +125,8 @@ def read_gbq(
       list of columns to load from the table
     read_kwargs: dict
       kwargs to pass to read_rows()
+    fwd_creds: bool
+      Set to True if user desires to forward credentials to the workers. Default to False.
 
     Returns
     -------
@@ -128,19 +134,26 @@ def read_gbq(
     """
     read_kwargs = read_kwargs or {}
 
-    creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-    if creds_path is None:
-        raise ValueError("No credentials found")
+    if fwd_creds:
+        creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        if creds_path is None:
+            raise ValueError("No credentials found")
 
-    credentials = service_account.Credentials.from_service_account_file(
-        creds_path, scopes=["https://www.googleapis.com/auth/bigquery.readonly"]
-    )
+        credentials = service_account.Credentials.from_service_account_file(
+            creds_path, scopes=["https://www.googleapis.com/auth/bigquery.readonly"]
+        )
 
-    auth_req = google.auth.transport.requests.Request()
-    credentials.refresh(auth_req)
-    cred_token = credentials.token
+        auth_req = google.auth.transport.requests.Request()
+        credentials.refresh(auth_req)
+        cred_token = credentials.token
+    else:
+        credentials = None
+        cred_token = None
 
-    with bigquery_clients(project_id, credentials) as (bq_client, bqs_client):
+    with bigquery_clients(project_id, credentials=credentials) as (
+        bq_client,
+        bqs_client,
+    ):
         table_ref = bq_client.get_table(f"{dataset_id}.{table_id}")
         if table_ref.table_type == "VIEW":
             raise TypeError("Table type VIEW not supported")
