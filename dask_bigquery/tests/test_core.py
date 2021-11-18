@@ -111,3 +111,24 @@ def test_read_columns(df, dataset, fwd_creds, client):
         fwd_creds=fwd_creds,
     )
     assert list(ddf.columns) == columns
+
+
+@pytest.mark.parametrize("fwd_creds", [False, True])
+def test_read_gbq_no_creds_fail(dataset, fwd_creds, monkeypatch, client):
+    """This test is to check that if we do not have credentials
+    we can not authenticate.
+    """
+    project_id, dataset_id, table_id = dataset
+
+    def mock_auth(scopes=["https://www.googleapis.com/auth/bigquery.readonly"]):
+        raise google.auth.exceptions.DefaultCredentialsError()
+
+    monkeypatch.setattr(google.auth, "default", mock_auth)
+
+    with pytest.raises(google.auth.exceptions.DefaultCredentialsError):
+        read_gbq(
+            project_id=project_id,
+            dataset_id=dataset_id,
+            table_id=table_id,
+            fwd_creds=fwd_creds,
+        )
