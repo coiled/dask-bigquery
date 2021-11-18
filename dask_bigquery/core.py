@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from contextlib import contextmanager
 from functools import partial
 
@@ -15,7 +14,6 @@ from dask.layers import DataFrameIOLayer
 from google.api_core import client_info as rest_client_info
 from google.api_core.gapic_v1 import client_info as grpc_client_info
 from google.cloud import bigquery, bigquery_storage
-from google.oauth2 import service_account
 
 import dask_bigquery
 
@@ -135,13 +133,12 @@ def read_gbq(
     read_kwargs = read_kwargs or {}
 
     if fwd_creds:
-        creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        if creds_path is None:
-            raise ValueError("No credentials found")
-
-        credentials = service_account.Credentials.from_service_account_file(
-            creds_path, scopes=["https://www.googleapis.com/auth/bigquery.readonly"]
-        )
+        try:
+            credentials, _ = google.auth.default(
+                scopes=["https://www.googleapis.com/auth/bigquery.readonly"]
+            )
+        except google.auth.exceptions.DefaultCredentialsError:
+            print("No credentials found")
 
         auth_req = google.auth.transport.requests.Request()
         credentials.refresh(auth_req)
