@@ -133,12 +133,9 @@ def read_gbq(
     read_kwargs = read_kwargs or {}
 
     if fwd_creds:
-        try:
-            credentials, _ = google.auth.default(
-                scopes=["https://www.googleapis.com/auth/bigquery.readonly"]
-            )
-        except google.auth.exceptions.DefaultCredentialsError:
-            print("No credentials found")
+        credentials, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/bigquery.readonly"]
+        )
 
         auth_req = google.auth.transport.requests.Request()
         credentials.refresh(auth_req)
