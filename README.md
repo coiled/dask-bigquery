@@ -12,6 +12,12 @@ Read data from Google BigQuery with Dask
 pip install dask-bigquery
 ```
 
+or with `conda`:
+
+```
+conda install -c conda-forge dask-bigquery
+```
+
 ## Example
 
 `dask-bigquery` assumes that you are already authenticated.
