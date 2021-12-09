@@ -1,6 +1,9 @@
 name: Tests
 
-on: push
+on:
+  # Run manually by clicking a button in the UI
+  workflow_dispatch:
+  push:
 
 # When this workflow is queued, automatically cancel any previous running
 # or pending jobs from the same branch
