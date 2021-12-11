@@ -3,3 +3,4 @@ google-cloud-bigquery >= 2.11.0
 google-cloud-bigquery-storage
 pandas
 pyarrow
+protobuf >= 3.17.3
