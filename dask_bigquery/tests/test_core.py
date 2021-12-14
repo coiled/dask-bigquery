@@ -1,7 +1,7 @@
 import os
 import random
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import google.auth
 import pandas as pd
@@ -20,7 +20,7 @@ def df():
         {
             "name": random.choice(["fred", "wilma", "barney", "betty"]),
             "number": random.randint(0, 100),
-            "timestamp": datetime.now() - timedelta(days=i % 2),
+            "timestamp": datetime.now(timezone.utc) - timedelta(days=i % 2),
             "idx": i,
         }
         for i in range(10)
