@@ -6,7 +6,7 @@ dependencies:
   - dask
   - distributed
   - pandas
-  - pyarrow
+  - pyarrow=6
   - pytest
   - grpcio
   - pandas-gbq<=0.15
