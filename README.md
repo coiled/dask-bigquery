@@ -22,7 +22,7 @@ conda install -c conda-forge dask-bigquery
 
 ## Example
 
-`dask-bigquery` assumes that you are already authenticated. 
+`dask-bigquery` assumes that you are already authenticated.
 
 ```python
 import dask_bigquery

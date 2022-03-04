@@ -3,6 +3,8 @@ from __future__ import annotations
 from contextlib import contextmanager
 from functools import partial
 
+import google.auth.transport.requests
+import google.oauth2.credentials
 import pandas as pd
 import pyarrow
 from dask.base import tokenize
@@ -17,7 +19,7 @@ import dask_bigquery
 
 
 @contextmanager
-def bigquery_clients(project_id):
+def bigquery_clients(project_id, credentials=None):
     """This context manager is a temporary solution until there is an
     upstream solution to handle this.
     See googleapis/google-cloud-python#9457
@@ -30,7 +32,9 @@ def bigquery_clients(project_id):
         user_agent=f"dask-bigquery/{dask_bigquery.__version__}"
     )
 
-    with bigquery.Client(project_id, client_info=bq_client_info) as bq_client:
+    with bigquery.Client(
+        project_id, credentials=credentials, client_info=bq_client_info
+    ) as bq_client:
         bq_storage_client = bigquery_storage.BigQueryReadClient(
             credentials=bq_client._credentials,
             client_info=bqstorage_client_info,
@@ -54,6 +58,7 @@ def bigquery_read(
     make_create_read_session_request: callable,
     project_id: str,
     read_kwargs: dict,
+    cred_token: str,
     stream_name: str,
 ) -> pd.DataFrame:
     """Read a single batch of rows via BQ Storage API, in Arrow binary format.
@@ -70,8 +75,16 @@ def bigquery_read(
       BigQuery Storage API Stream "name"
       NOTE: Please set if reading from Storage API without any `row_restriction`.
             https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1beta1#stream
+    cred_token: str
+      google_auth bearer token
     """
-    with bigquery_clients(project_id) as (_, bqs_client):
+
+    if cred_token:
+        credentials = google.oauth2.credentials.Credentials(cred_token)
+    else:
+        credentials = None
+
+    with bigquery_clients(project_id, credentials=credentials) as (_, bqs_client):
         session = bqs_client.create_read_session(make_create_read_session_request())
         schema = pyarrow.ipc.read_schema(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
@@ -91,6 +104,7 @@ def read_gbq(
     row_filter: str = "",
     columns: list[str] = None,
     read_kwargs: dict = None,
+    fwd_creds: bool = False,
 ):
     """Read table as dask dataframe using BigQuery Storage API via Arrow format.
     Partitions will be approximately balanced according to BigQuery stream allocation logic.
@@ -109,13 +123,31 @@ def read_gbq(
       list of columns to load from the table
     read_kwargs: dict
       kwargs to pass to read_rows()
+    fwd_creds: bool
+      Set to True if user desires to forward credentials to the workers. Default to False.
 
     Returns
     -------
         Dask DataFrame
     """
     read_kwargs = read_kwargs or {}
-    with bigquery_clients(project_id) as (bq_client, bqs_client):
+
+    if fwd_creds:
+        credentials, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/bigquery.readonly"]
+        )
+
+        auth_req = google.auth.transport.requests.Request()
+        credentials.refresh(auth_req)
+        cred_token = credentials.token
+    else:
+        credentials = None
+        cred_token = None
+
+    with bigquery_clients(project_id, credentials=credentials) as (
+        bq_client,
+        bqs_client,
+    ):
         table_ref = bq_client.get_table(f"{dataset_id}.{table_id}")
         if table_ref.table_type == "VIEW":
             raise TypeError("Table type VIEW not supported")
@@ -161,6 +193,7 @@ def read_gbq(
                 make_create_read_session_request,
                 project_id,
                 read_kwargs,
+                cred_token,
             ),
             label=label,
         )
