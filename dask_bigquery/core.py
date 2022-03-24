@@ -90,6 +90,7 @@ def read_gbq(
     table_id: str,
     row_filter: str = "",
     columns: list[str] = None,
+    max_stream_count: int = 0,
     read_kwargs: dict = None,
 ):
     """Read table as dask dataframe using BigQuery Storage API via Arrow format.
@@ -106,7 +107,10 @@ def read_gbq(
     row_filter: str
       SQL text filtering statement to pass to `row_restriction`
     columns: list[str]
-      list of columns to load from the table
+      List of columns to load from the table
+    max_stream_count: int
+      Maximum number of streams to request from BQ storage; a value of 0 will request as many
+      streams as possible. Note that BQ may return fewer streams than requested.
     read_kwargs: dict
       kwargs to pass to read_rows()
 
@@ -120,9 +124,9 @@ def read_gbq(
         if table_ref.table_type == "VIEW":
             raise TypeError("Table type VIEW not supported")
 
-        def make_create_read_session_request(row_filter=""):
+        def make_create_read_session_request(row_filter="", max_stream_count=0):
             return bigquery_storage.types.CreateReadSessionRequest(
-                max_stream_count=0,  # 0 -> use as many streams as BQ Storage will provide
+                max_stream_count=max_stream_count,  # 0 -> use as many as BQ Storage will provide
                 parent=f"projects/{project_id}",
                 read_session=bigquery_storage.types.ReadSession(
                     data_format=bigquery_storage.types.DataFormat.ARROW,
@@ -136,7 +140,9 @@ def read_gbq(
         # Create a read session in order to detect the schema.
         # Read sessions are light weight and will be auto-deleted after 24 hours.
         session = bqs_client.create_read_session(
-            make_create_read_session_request(row_filter=row_filter)
+            make_create_read_session_request(
+                row_filter=row_filter, max_stream_count=max_stream_count
+            )
         )
         schema = pyarrow.ipc.read_schema(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
