@@ -114,3 +114,14 @@ def test_read_columns(df, dataset, client):
         columns=columns,
     )
     assert list(ddf.columns) == columns
+
+
+def test_max_streams(df, dataset, client):
+    project_id, dataset_id, table_id = dataset
+    ddf = read_gbq(
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id=table_id,
+        max_stream_count=1,
+    )
+    assert ddf.npartitions == 1
