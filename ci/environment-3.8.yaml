@@ -9,9 +9,9 @@ dependencies:
   - pandas
   - pyarrow
   - pytest
-  - grpcio=1.44
-  # Including grpcio-status as a temporary workaround for
-  # https://github.com/googleapis/python-api-core/issues/301
-  - grpcio-status
+  # - grpcio=1.44
+  # # Including grpcio-status as a temporary workaround for
+  # # https://github.com/googleapis/python-api-core/issues/301
+  # - grpcio-status
   - google-cloud-bigquery>=2.11.0
   - google-cloud-bigquery-storage
