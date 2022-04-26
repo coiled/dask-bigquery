@@ -1,0 +1,14 @@
+name: test-environment
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.10
+  - dask
+  - distributed
+  - pandas
+  - pyarrow
+  - pytest
+  - grpcio<1.45
+  - google-cloud-bigquery>=2.11.0
+  - google-cloud-bigquery-storage
