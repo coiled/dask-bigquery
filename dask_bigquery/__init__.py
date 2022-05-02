@@ -1,3 +1,3 @@
 from .core import read_gbq
 
-__version__ = "2021.10.1"
+__version__ = "2022.05.0"
