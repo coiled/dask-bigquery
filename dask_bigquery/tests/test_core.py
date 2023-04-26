@@ -6,12 +6,14 @@ from datetime import datetime, timedelta, timezone
 import google.auth
 import pandas as pd
 import pytest
+import dask.dataframe as dd
+
 from dask.dataframe.utils import assert_eq
 from distributed.utils_test import cluster_fixture  # noqa: F401
-from distributed.utils_test import client, loop  # noqa: F401
+from distributed.utils_test import client, loop, loop_in_thread, cleanup  # noqa: F401
 from google.cloud import bigquery
 
-from dask_bigquery import read_gbq
+from dask_bigquery import read_gbq, to_dbq
 
 
 @pytest.fixture
@@ -66,12 +68,40 @@ def dataset(df):
         )
 
 
+@pytest.fixture
+def write_dataset():
+    project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
+    if not project_id:
+        _, project_id = google.auth.default()
+    dataset_id = uuid.uuid4().hex
+
+    yield project_id, dataset_id
+
+    with bigquery.Client() as bq_client:
+        bq_client.delete_dataset(
+            dataset=f"{project_id}.{dataset_id}",
+            delete_contents=True,
+        )
+
+
+def test_to_dbq(df, write_dataset):
+    pytest.importorskip("gcsfs", reason="Requires gcfs to write to Google Storage")
+    project_id, dataset_id = write_dataset
+    ddf = dd.from_pandas(df, npartitions=2)
+    result = to_dbq(
+        ddf,
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id="table_to_write",
+    )
+    assert result.state == "DONE"
+
+
 def test_read_gbq(df, dataset, client):
     project_id, dataset_id, table_id = dataset
     ddf = read_gbq(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
 
     assert list(ddf.columns) == ["name", "number", "timestamp", "idx"]
-    assert ddf.npartitions == 2
     assert assert_eq(ddf.set_index("idx"), df.set_index("idx"))
 
 

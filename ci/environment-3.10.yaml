@@ -9,6 +9,7 @@ dependencies:
   - pandas
   - pyarrow
   - pytest
+  - gcsfs
   - grpcio<1.45
   - google-cloud-bigquery>=2.11.0
   - google-cloud-bigquery-storage
