@@ -3,14 +3,16 @@ import random
 import uuid
 from datetime import datetime, timedelta, timezone
 
+import dask.dataframe as dd
 import google.auth
 import pandas as pd
 import pytest
-import dask.dataframe as dd
-
 from dask.dataframe.utils import assert_eq
+from distributed.utils_test import cleanup  # noqa: F401
+from distributed.utils_test import client  # noqa: F401
 from distributed.utils_test import cluster_fixture  # noqa: F401
-from distributed.utils_test import client, loop, loop_in_thread, cleanup  # noqa: F401
+from distributed.utils_test import loop  # noqa: F401
+from distributed.utils_test import loop_in_thread  # noqa: F401
 from google.cloud import bigquery
 
 from dask_bigquery import read_gbq, to_dbq

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import datetime as dt
 from contextlib import contextmanager
 from functools import partial
 
-import datetime as dt
 import pandas as pd
 import pyarrow
 from dask.base import tokenize
