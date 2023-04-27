@@ -109,8 +109,7 @@ def read_gbq(
     table_id: str,
     row_filter: str = "",
     columns: list[str] = None,
-    max_stream_count: int = 0,  # 0 -> use as many as BQ Storage will provide
-    preferred_min_stream_count: int = 2,
+    max_stream_count: int = 0,
     read_kwargs: dict = None,
 ):
     """Read table as dask dataframe using BigQuery Storage API via Arrow format.
@@ -131,12 +130,6 @@ def read_gbq(
     max_stream_count: int
       Maximum number of streams to request from BQ storage; a value of 0 will request as many
       streams as possible. Note that BQ may return fewer streams than requested.
-    preferred_min_stream_count: int
-      The minimum preferred stream count. This parameter can be used to inform the service that
-      there is a desired lower bound on the number of streams. This is typically a target parallelism
-      of the client (e.g. a Spark cluster with N-workers would set this to a low multiple of N to
-      ensure good cluster utilization). The system will make a best effort to provide at least this
-      number of streams, but in some cases might provide less.
     read_kwargs: dict
       kwargs to pass to read_rows()
 
@@ -150,8 +143,9 @@ def read_gbq(
         if table_ref.table_type == "VIEW":
             raise TypeError("Table type VIEW not supported")
 
-        def make_create_read_session_request(row_filter="", **request_kwargs):
+        def make_create_read_session_request(row_filter="", max_stream_count=0):
             return bigquery_storage.types.CreateReadSessionRequest(
+                max_stream_count=max_stream_count,  # 0 -> use as many as BQ Storage will provide
                 parent=f"projects/{project_id}",
                 read_session=bigquery_storage.types.ReadSession(
                     data_format=bigquery_storage.types.DataFormat.ARROW,
@@ -160,16 +154,13 @@ def read_gbq(
                     ),
                     table=table_ref.to_bqstorage(),
                 ),
-                **request_kwargs,
             )
 
         # Create a read session in order to detect the schema.
         # Read sessions are light weight and will be auto-deleted after 24 hours.
         session = bqs_client.create_read_session(
             make_create_read_session_request(
-                row_filter=row_filter,
-                max_stream_count=max_stream_count,
-                preferred_min_stream_count=preferred_min_stream_count,
+                row_filter=row_filter, max_stream_count=max_stream_count
             )
         )
         schema = pyarrow.ipc.read_schema(
@@ -204,7 +195,7 @@ def read_gbq(
         return new_dd_object(graph, output_name, meta, divisions)
 
 
-def to_dbq(
+def to_gbq(
     df,
     *,
     project_id: str,

@@ -15,7 +15,7 @@ from distributed.utils_test import loop  # noqa: F401
 from distributed.utils_test import loop_in_thread  # noqa: F401
 from google.cloud import bigquery
 
-from dask_bigquery import read_gbq, to_dbq
+from dask_bigquery import read_gbq, to_gbq
 
 
 @pytest.fixture
@@ -86,11 +86,11 @@ def write_dataset():
         )
 
 
-def test_to_dbq(df, write_dataset):
+def test_to_gbq(df, write_dataset):
     pytest.importorskip("gcsfs", reason="Requires gcfs to write to Google Storage")
     project_id, dataset_id = write_dataset
     ddf = dd.from_pandas(df, npartitions=2)
-    result = to_dbq(
+    result = to_gbq(
         ddf,
         project_id=project_id,
         dataset_id=dataset_id,
