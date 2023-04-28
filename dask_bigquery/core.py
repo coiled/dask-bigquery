@@ -12,6 +12,7 @@ from dask.highlevelgraph import HighLevelGraph
 from dask.layers import DataFrameIOLayer
 from google.api_core import client_info as rest_client_info
 from google.api_core.gapic_v1 import client_info as grpc_client_info
+from google.auth.credentials import Credentials
 from google.cloud import bigquery, bigquery_storage, storage
 
 import dask_bigquery
@@ -41,21 +42,23 @@ def bigquery_clients(project_id):
 
 
 @contextmanager
-def bigquery_client(project_id):
+def bigquery_client(project_id, credentials=None):
     """Create the BugQuery Client"""
     client_info = rest_client_info.ClientInfo(
         user_agent=f"dask-bigquery/{dask_bigquery.__version__}"
     )
-    with bigquery.Client(project_id, client_info=client_info) as client:
+    with bigquery.Client(
+        project_id, credentials=credentials, client_info=client_info
+    ) as client:
         yield client
 
 
-def gcs_client(project_id):
+def gcs_client(project_id, credentials=None):
     """Create the Google Storage Client"""
     client_info = rest_client_info.ClientInfo(
         user_agent=f"dask-bigquery/{dask_bigquery.__version__}"
     )
-    return storage.Client(project_id, client_info=client_info)
+    return storage.Client(project_id, credentials=credentials, client_info=client_info)
 
 
 def _stream_to_dfs(bqs_client, stream_name, schema, read_kwargs):
@@ -202,6 +205,10 @@ def to_gbq(
     dataset_id: str,
     table_id: str,
     gs_bucket: str = "dask-bigquery-tmp",
+    credentials: Credentials = None,
+    delete_bucket: bool = False,
+    parquet_kwargs: dict = None,
+    load_job_kwargs: dict = None,
 ):
     """Write dask dataframe as table using BigQuery Load API.
     Writes Parquet to GCS for intermediary storage.
@@ -215,13 +222,32 @@ def to_gbq(
     table_id: str
       BigQuery table within dataset
     gs_bucket: str
-      Google Cloud Storage bucket name, for intermediary parquet storage. Will be created if
-      not exists. Default: dask-bigquery-tmp.
+      Google Cloud Storage bucket name, for intermediary parquet storage. If the bucket doesn't
+      exist, it will be created. The account you're using will need Google Cloud Storage
+      permissions (storage.objects.create, storage.buckets.create).
+      Default: dask-bigquery-tmp.
+    credentials : google.auth.credentials.Credentials, optional
+      Credentials for accessing Google APIs. Use this parameter to override
+      default credentials.
+    delete_bucket:
+      Delete bucket in GCS after loading intermediary data to Big Query.
+      Default: False.
+    parquet_kwargs: dict
+      Additional kwargs to pass to dataframe.write_parquet, such as schema, partition_on or
+      write_index. For writing parquet, pyarrow is required.
+      Default: {"write_index": False}
+    load_job_kwargs: dict
+      Additional kwargs to pass when creating bigquery.LoadJobConfig, such as schema,
+      time_partitioning, clustering_fields, etc.
+      Default: {"autodetect": True}
 
     Returns
     -------
         LoadJobResult
     """
+    if project_id is None and hasattr(credentials, "project_id"):
+        # service account credentials have a project associated with them
+        project_id = credentials.project_id
     if not project_id:
         raise ValueError("Required: project_id")
     if not table_id:
@@ -229,7 +255,15 @@ def to_gbq(
     if not dataset_id:
         raise ValueError("Required: dataset_id")
 
-    storage_client = gcs_client(project_id)
+    parquet_kwargs = parquet_kwargs or {}
+    if not parquet_kwargs:
+        parquet_kwargs["write_index"] = False
+
+    load_job_kwargs = load_job_kwargs or {}
+    if not load_job_kwargs:
+        load_job_kwargs["autodetect"] = True
+
+    storage_client = gcs_client(project_id, credentials=credentials)
     bucket = storage_client.lookup_bucket(bucket_name=gs_bucket)
     if not bucket:
         bucket = storage_client.create_bucket(gs_bucket)
@@ -238,19 +272,21 @@ def to_gbq(
     object_prefix = f"{dt.datetime.utcnow():%Y-%m-%dT%H-%M-%S}_{token}"
 
     path = f"gs://{gs_bucket}/{object_prefix}"
-    df.to_parquet(path=path, engine="pyarrow", write_metadata_file=False)
+    df.to_parquet(
+        path=path, engine="pyarrow", write_metadata_file=False, **parquet_kwargs
+    )
 
     try:
-        with bigquery_client(project_id) as client:
+        with bigquery_client(project_id, credentials=credentials) as client:
             target_dataset = client.create_dataset(dataset_id, exists_ok=True)
             target_table = target_dataset.table(table_id)
 
             job_config = bigquery.LoadJobConfig(
-                autodetect=True,
                 source_format=bigquery.SourceFormat.PARQUET,
                 write_disposition="WRITE_EMPTY",
+                **load_job_kwargs,
             )
-            job = bigquery.Client(project_id).load_table_from_uri(
+            job = client.load_table_from_uri(
                 source_uris=f"{path}/*.parquet",
                 destination=target_table,
                 job_config=job_config,
@@ -263,3 +299,5 @@ def to_gbq(
         # cleanup temporary parquet
         for blob in bucket.list_blobs(prefix=object_prefix):
             blob.delete()
+        if delete_bucket and bucket and bucket.exists():
+            bucket.delete()

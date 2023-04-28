@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import dask.dataframe as dd
 import google.auth
 import pandas as pd
+import pyarrow as pa
 import pytest
 from dask.dataframe.utils import assert_eq
 from distributed.utils_test import cleanup  # noqa: F401
@@ -72,12 +73,14 @@ def dataset(df):
 
 @pytest.fixture
 def write_dataset():
-    project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
-    if not project_id:
-        _, project_id = google.auth.default()
+    credentials, project_id = google.auth.default()
+    env_project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
+    if env_project_id:
+        project_id = env_project_id
+
     dataset_id = uuid.uuid4().hex
 
-    yield project_id, dataset_id
+    yield credentials, project_id, dataset_id
 
     with bigquery.Client() as bq_client:
         bq_client.delete_dataset(
@@ -86,15 +89,60 @@ def write_dataset():
         )
 
 
-def test_to_gbq(df, write_dataset):
-    pytest.importorskip("gcsfs", reason="Requires gcfs to write to Google Storage")
-    project_id, dataset_id = write_dataset
+@pytest.mark.parametrize(
+    "parquet_kwargs,load_job_kwargs",
+    [
+        (None, None),
+        (
+            {
+                "schema": pa.schema(
+                    [
+                        ("name", pa.string()),
+                        ("number", pa.uint8()),
+                        ("timestamp", pa.timestamp("ns")),
+                        ("idx", pa.uint8()),
+                    ]
+                ),
+                "write_index": False,
+            },
+            {
+                "schema": [
+                    bigquery.SchemaField("name", "STRING"),
+                    bigquery.SchemaField("number", "INTEGER"),
+                    bigquery.SchemaField("timestamp", "TIMESTAMP"),
+                    bigquery.SchemaField("idx", "INTEGER"),
+                ],
+                "autodetect": False,
+            },
+        ),
+    ],
+)
+def test_to_gbq(df, write_dataset, parquet_kwargs, load_job_kwargs):
+    _, project_id, dataset_id = write_dataset
     ddf = dd.from_pandas(df, npartitions=2)
+
     result = to_gbq(
         ddf,
         project_id=project_id,
         dataset_id=dataset_id,
         table_id="table_to_write",
+        parquet_kwargs=parquet_kwargs,
+        load_job_kwargs=load_job_kwargs,
+    )
+    assert result.state == "DONE"
+
+
+def test_to_gbq_with_credentials(df, write_dataset):
+    credentials, project_id, dataset_id = write_dataset
+    ddf = dd.from_pandas(df, npartitions=2)
+
+    # without explicit credentials
+    result = to_gbq(
+        ddf,
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id="table_to_write",
+        credentials=credentials,
     )
     assert result.state == "DONE"
 
