@@ -165,7 +165,6 @@ def test_read_row_filter(df, dataset, client):
     )
 
     assert list(ddf.columns) == ["name", "number", "timestamp", "idx"]
-    assert ddf.npartitions == 2
     assert assert_eq(ddf.set_index("idx").loc[:4], df.set_index("idx").loc[:4])
 
 

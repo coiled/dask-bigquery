@@ -224,7 +224,9 @@ def to_gbq(
     gs_bucket: str
       Google Cloud Storage bucket name, for intermediary parquet storage. If the bucket doesn't
       exist, it will be created. The account you're using will need Google Cloud Storage
-      permissions (storage.objects.create, storage.buckets.create).
+      permissions (storage.objects.create, storage.buckets.create). If a persistent bucket is used,
+      it might be a good idea to configure it with retention, to make sure the temporary data gets
+      cleaned periodically, even if the job is failed to finish and cleanup.
       Default: dask-bigquery-tmp.
     credentials : google.auth.credentials.Credentials, optional
       Credentials for accessing Google APIs. Use this parameter to override
