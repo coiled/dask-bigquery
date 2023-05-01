@@ -4,6 +4,7 @@ import datetime as dt
 from contextlib import contextmanager
 from functools import partial
 
+import gcsfs
 import pandas as pd
 import pyarrow
 from dask.base import tokenize
@@ -12,8 +13,9 @@ from dask.highlevelgraph import HighLevelGraph
 from dask.layers import DataFrameIOLayer
 from google.api_core import client_info as rest_client_info
 from google.api_core.gapic_v1 import client_info as grpc_client_info
+from google.auth import default as google_auth_default
 from google.auth.credentials import Credentials
-from google.cloud import bigquery, bigquery_storage, storage
+from google.cloud import bigquery, bigquery_storage
 
 import dask_bigquery
 
@@ -53,12 +55,14 @@ def bigquery_client(project_id, credentials=None):
         yield client
 
 
-def gcs_client(project_id, credentials=None):
-    """Create the Google Storage Client"""
-    client_info = rest_client_info.ClientInfo(
-        user_agent=f"dask-bigquery/{dask_bigquery.__version__}"
+def gcs_fs(project_id, credentials=None):
+    """Create the GCSFS client"""
+    if credentials is None:
+        credentials, default_project_id = google_auth_default()
+        project_id = project_id or default_project_id
+    return gcsfs.GCSFileSystem(
+        project=project_id, access="read_write", token=credentials.token
     )
-    return storage.Client(project_id, credentials=credentials, client_info=client_info)
 
 
 def _stream_to_dfs(bqs_client, stream_name, schema, read_kwargs):
@@ -208,7 +212,7 @@ def to_gbq(
     credentials: Credentials = None,
     delete_bucket: bool = False,
     parquet_kwargs: dict = None,
-    load_job_kwargs: dict = None,
+    load_api_kwargs: dict = None,
 ):
     """Write dask dataframe as table using BigQuery Load API.
     Writes Parquet to GCS for intermediary storage.
@@ -238,7 +242,7 @@ def to_gbq(
       Additional kwargs to pass to dataframe.write_parquet, such as schema, partition_on or
       write_index. For writing parquet, pyarrow is required.
       Default: {"write_index": False}
-    load_job_kwargs: dict
+    load_api_kwargs: dict
       Additional kwargs to pass when creating bigquery.LoadJobConfig, such as schema,
       time_partitioning, clustering_fields, etc.
       Default: {"autodetect": True}
@@ -261,14 +265,13 @@ def to_gbq(
     if not parquet_kwargs:
         parquet_kwargs["write_index"] = False
 
-    load_job_kwargs = load_job_kwargs or {}
-    if not load_job_kwargs:
-        load_job_kwargs["autodetect"] = True
+    load_api_kwargs = load_api_kwargs or {}
+    if not load_api_kwargs:
+        load_api_kwargs["autodetect"] = True
 
-    storage_client = gcs_client(project_id, credentials=credentials)
-    bucket = storage_client.lookup_bucket(bucket_name=gs_bucket)
-    if not bucket:
-        bucket = storage_client.create_bucket(gs_bucket)
+    fs = gcs_fs(project_id, credentials=credentials)
+    if not fs.exists(gs_bucket):
+        fs.mkdir(gs_bucket)
 
     token = tokenize(df)
     object_prefix = f"{dt.datetime.utcnow():%Y-%m-%dT%H-%M-%S}_{token}"
@@ -286,7 +289,7 @@ def to_gbq(
             job_config = bigquery.LoadJobConfig(
                 source_format=bigquery.SourceFormat.PARQUET,
                 write_disposition="WRITE_EMPTY",
-                **load_job_kwargs,
+                **load_api_kwargs,
             )
             job = client.load_table_from_uri(
                 source_uris=f"{path}/*.parquet",
@@ -299,7 +302,6 @@ def to_gbq(
         raise
     finally:
         # cleanup temporary parquet
-        for blob in bucket.list_blobs(prefix=object_prefix):
-            blob.delete()
-        if delete_bucket and bucket and bucket.exists():
-            bucket.delete()
+        fs.rm(f"{gs_bucket}/{object_prefix}", recursive=True)
+        if delete_bucket:
+            fs.rm(recursive=True)

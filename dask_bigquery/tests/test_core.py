@@ -90,7 +90,7 @@ def write_dataset():
 
 
 @pytest.mark.parametrize(
-    "parquet_kwargs,load_job_kwargs",
+    "parquet_kwargs,load_api_kwargs",
     [
         (None, None),
         (
@@ -117,7 +117,7 @@ def write_dataset():
         ),
     ],
 )
-def test_to_gbq(df, write_dataset, parquet_kwargs, load_job_kwargs):
+def test_to_gbq(df, write_dataset, parquet_kwargs, load_api_kwargs):
     _, project_id, dataset_id = write_dataset
     ddf = dd.from_pandas(df, npartitions=2)
 
@@ -127,7 +127,7 @@ def test_to_gbq(df, write_dataset, parquet_kwargs, load_job_kwargs):
         dataset_id=dataset_id,
         table_id="table_to_write",
         parquet_kwargs=parquet_kwargs,
-        load_job_kwargs=load_job_kwargs,
+        load_api_kwargs=load_api_kwargs,
     )
     assert result.state == "DONE"
 
