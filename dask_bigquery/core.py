@@ -208,7 +208,7 @@ def to_gbq(
     project_id: str,
     dataset_id: str,
     table_id: str,
-    gs_bucket: str = "dask-bigquery-tmp",
+    bucket: str = "dask-bigquery-tmp",
     credentials: Credentials = None,
     delete_bucket: bool = False,
     parquet_kwargs: dict = None,
@@ -225,7 +225,7 @@ def to_gbq(
       BigQuery dataset within project
     table_id: str
       BigQuery table within dataset
-    gs_bucket: str
+    bucket: str
       Google Cloud Storage bucket name, for intermediary parquet storage. If the bucket doesn't
       exist, it will be created. The account you're using will need Google Cloud Storage
       permissions (storage.objects.create, storage.buckets.create). If a persistent bucket is used,
@@ -270,18 +270,21 @@ def to_gbq(
         load_api_kwargs["autodetect"] = True
 
     fs = gcs_fs(project_id, credentials=credentials)
-    if not fs.exists(gs_bucket):
-        fs.mkdir(gs_bucket)
+    if fs.exists(bucket):
+        # if we didn't create it, we shouldn't delete it
+        delete_bucket = False
+    else:
+        fs.mkdir(bucket)
 
     token = tokenize(df)
     object_prefix = f"{dt.datetime.utcnow():%Y-%m-%dT%H-%M-%S}_{token}"
-
-    path = f"gs://{gs_bucket}/{object_prefix}"
-    df.to_parquet(
-        path=path, engine="pyarrow", write_metadata_file=False, **parquet_kwargs
-    )
+    path = f"gs://{bucket}/{object_prefix}"
 
     try:
+        df.to_parquet(
+            path=path, engine="pyarrow", write_metadata_file=False, **parquet_kwargs
+        )
+
         with bigquery_client(project_id, credentials=credentials) as client:
             target_dataset = client.create_dataset(dataset_id, exists_ok=True)
             target_table = target_dataset.table(table_id)
@@ -302,6 +305,6 @@ def to_gbq(
         raise
     finally:
         # cleanup temporary parquet
-        fs.rm(f"{gs_bucket}/{object_prefix}", recursive=True)
+        fs.rm(f"{bucket}/{object_prefix}", recursive=True)
         if delete_bucket:
             fs.rm(recursive=True)
