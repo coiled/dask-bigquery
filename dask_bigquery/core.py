@@ -212,9 +212,9 @@ def to_gbq(
     credentials: Credentials = None,
     delete_bucket: bool = False,
     parquet_kwargs: dict = None,
-    load_api_kwargs: dict = None,
+    load_job_kwargs: dict = None,
 ):
-    """Write dask dataframe as table using BigQuery Load API.
+    """Write dask dataframe as table using BigQuery LoadJob.
     Writes Parquet to GCS for intermediary storage.
 
     Parameters
@@ -242,7 +242,7 @@ def to_gbq(
       Additional kwargs to pass to dataframe.write_parquet, such as schema, partition_on or
       write_index. For writing parquet, pyarrow is required.
       Default: {"write_index": False}
-    load_api_kwargs: dict
+    load_job_kwargs: dict
       Additional kwargs to pass when creating bigquery.LoadJobConfig, such as schema,
       time_partitioning, clustering_fields, etc.
       Default: {"autodetect": True}
@@ -265,9 +265,9 @@ def to_gbq(
     if not parquet_kwargs:
         parquet_kwargs["write_index"] = False
 
-    load_api_kwargs = load_api_kwargs or {}
-    if not load_api_kwargs:
-        load_api_kwargs["autodetect"] = True
+    load_job_kwargs = load_job_kwargs or {}
+    if not load_job_kwargs:
+        load_job_kwargs["autodetect"] = True
 
     fs = gcs_fs(project_id, credentials=credentials)
     if fs.exists(bucket):
@@ -292,7 +292,7 @@ def to_gbq(
             job_config = bigquery.LoadJobConfig(
                 source_format=bigquery.SourceFormat.PARQUET,
                 write_disposition="WRITE_EMPTY",
-                **load_api_kwargs,
+                **load_job_kwargs,
             )
             job = client.load_table_from_uri(
                 source_uris=f"{path}/*.parquet",
