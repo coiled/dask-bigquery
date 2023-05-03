@@ -9,7 +9,11 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 from dask.dataframe.utils import assert_eq
+from distributed.utils_test import cleanup  # noqa: F401
 from distributed.utils_test import client  # noqa: F401
+from distributed.utils_test import cluster_fixture  # noqa: F401
+from distributed.utils_test import loop  # noqa: F401
+from distributed.utils_test import loop_in_thread  # noqa: F401
 from google.cloud import bigquery
 
 from dask_bigquery import read_gbq, to_gbq
