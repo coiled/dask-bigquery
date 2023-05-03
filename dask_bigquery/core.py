@@ -46,7 +46,7 @@ def bigquery_clients(project_id):
 
 @contextmanager
 def bigquery_client(project_id, credentials=None):
-    """Create the BugQuery Client"""
+    """Create the BigQuery Client"""
     client_info = rest_client_info.ClientInfo(
         user_agent=f"dask-bigquery/{dask_bigquery.__version__}"
     )
