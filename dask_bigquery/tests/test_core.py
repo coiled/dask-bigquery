@@ -145,7 +145,7 @@ def test_to_gbq_with_credentials(df, write_dataset):
     credentials, project_id, dataset_id = write_dataset
     ddf = dd.from_pandas(df, npartitions=2)
 
-    # without explicit credentials
+    # with explicit credentials
     result = to_gbq(
         ddf,
         project_id=project_id,

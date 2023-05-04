@@ -237,18 +237,21 @@ def to_gbq(
     credentials : google.auth.credentials.Credentials, optional
       Credentials for accessing Google APIs. Use this parameter to override
       default credentials.
-    delete_bucket:
+    delete_bucket: bool
       Delete bucket in GCS after loading intermediary data to Big Query. The bucket will only be deleted if it
       didn't exist before.
       Default: False.
     parquet_kwargs: dict
       Additional kwargs to pass to dataframe.write_parquet, such as schema, partition_on or
-      write_index. For writing parquet, pyarrow is required.
-      Default: {"write_index": False, "engine": "pyarrow", "write_metadata_file": False}
+      write_index. For writing parquet, pyarrow is required. "engine" will always be set to "pyarrow", and
+      "write_metadata_file" to False, even if different values are passed.
+      Default: {"write_index": False}.
+
     load_job_kwargs: dict
       Additional kwargs to pass when creating bigquery.LoadJobConfig, such as schema,
-      time_partitioning, clustering_fields, etc.
-      Default: {"autodetect": True}
+      time_partitioning, clustering_fields, etc. If "schema" is passed, "autodetect" will be
+      set to "False", otherwise "True".
+      Default: {"write_disposition": "WRITE_EMPTY"}.
 
     Returns
     -------
@@ -258,13 +261,11 @@ def to_gbq(
         # service account credentials have a project associated with them
         project_id = credentials.project_id
 
-    load_job_kwargs_used = (
-        load_job_kwargs.copy()
-        if load_job_kwargs
-        else {"write_disposition": "WRITE_EMPTY"}
-    )
-    if "schema" not in load_job_kwargs_used:
-        load_job_kwargs_used["autodetect"] = True
+    load_job_kwargs_used = {"write_disposition": "WRITE_EMPTY"}
+    if load_job_kwargs:
+        load_job_kwargs_used.update(load_job_kwargs)
+
+    load_job_kwargs_used["autodetect"] = "schema" not in load_job_kwargs_used
 
     # override the following kwargs, even if user specified them
     load_job_kwargs_used["source_format"] = bigquery.SourceFormat.PARQUET
@@ -312,8 +313,6 @@ def to_gbq(
             )
 
         return job.result()
-    except Exception:
-        raise
     finally:
         # cleanup temporary parquet
         fs.rm(f"{bucket}/{object_prefix}", recursive=True)
