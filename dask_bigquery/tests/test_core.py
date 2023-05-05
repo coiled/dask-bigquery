@@ -5,10 +5,16 @@ from datetime import datetime, timedelta, timezone
 
 import google.auth
 import pandas as pd
+import pyarrow as pa
 import pytest
 from dask.dataframe.utils import assert_eq
-from distributed.utils_test import cluster_fixture  # noqa: F401
-from distributed.utils_test import client, loop  # noqa: F401
+from distributed.utils_test import (
+    cleanup,
+    client,  # noqa: F401
+    cluster_fixture,
+    loop,
+    loop_in_thread,
+)
 from google.cloud import bigquery
 
 from dask_bigquery import read_gbq
@@ -125,3 +131,16 @@ def test_max_streams(df, dataset, client):
         max_stream_count=1,
     )
     assert ddf.npartitions == 1
+
+
+def test_arrow_options(dataset):
+    project_id, dataset_id, table_id = dataset
+    ddf = read_gbq(
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id=table_id,
+        arrow_options={
+            "types_mapper": {pa.string(): pd.StringDtype(storage="pyarrow")}.get
+        },
+    )
+    assert ddf.dtypes["name"] == pd.StringDtype(storage="pyarrow")
