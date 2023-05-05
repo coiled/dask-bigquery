@@ -8,13 +8,8 @@ import pandas as pd
 import pyarrow as pa
 import pytest
 from dask.dataframe.utils import assert_eq
-from distributed.utils_test import (
-    cleanup,
-    client,  # noqa: F401
-    cluster_fixture,
-    loop,
-    loop_in_thread,
-)
+from distributed.utils_test import cluster_fixture  # noqa: F401
+from distributed.utils_test import client, loop  # noqa: F401
 from google.cloud import bigquery
 
 from dask_bigquery import read_gbq

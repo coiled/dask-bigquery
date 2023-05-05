@@ -41,14 +41,13 @@ def bigquery_clients(project_id):
 
 def _stream_to_dfs(bqs_client, stream_name, schema, read_kwargs, arrow_options):
     """Given a Storage API client and a stream name, yield all dataframes."""
-    dfs = [
+    return [
         pyarrow.ipc.read_record_batch(
             pyarrow.py_buffer(message.arrow_record_batch.serialized_record_batch),
             schema,
         ).to_pandas(**arrow_options)
         for message in bqs_client.read_rows(name=stream_name, offset=0, **read_kwargs)
     ]
-    return dfs
 
 
 def bigquery_read(
