@@ -176,6 +176,7 @@ def test_read_gbq(df, dataset, client):
     ddf = read_gbq(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
 
     assert list(ddf.columns) == ["name", "number", "timestamp", "idx"]
+    assert ddf.npartitions >= 1
     assert assert_eq(ddf.set_index("idx"), df.set_index("idx"))
 
 
@@ -189,6 +190,7 @@ def test_read_row_filter(df, dataset, client):
     )
 
     assert list(ddf.columns) == ["name", "number", "timestamp", "idx"]
+    assert ddf.npartitions >= 1
     assert assert_eq(ddf.set_index("idx").loc[:4], df.set_index("idx").loc[:4])
 
 
