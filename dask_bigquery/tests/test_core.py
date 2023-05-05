@@ -156,6 +156,21 @@ def test_to_gbq_with_credentials(df, write_dataset):
     assert result.state == "DONE"
 
 
+def test_roundtrip(df, write_dataset):
+    _, project_id, dataset_id = write_dataset
+    ddf = dd.from_pandas(df, npartitions=2)
+    table_id = "roundtrip_table"
+
+    result = to_gbq(
+        ddf, project_id=project_id, dataset_id=dataset_id, table_id=table_id
+    )
+    assert result.state == "DONE"
+
+    ddf_out = read_gbq(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
+    # bigquery does not guarantee ordering, so let's reindex
+    assert_eq(ddf.set_index("idx"), ddf_out.set_index("idx"))
+
+
 def test_read_gbq(df, dataset, client):
     project_id, dataset_id, table_id = dataset
     ddf = read_gbq(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
