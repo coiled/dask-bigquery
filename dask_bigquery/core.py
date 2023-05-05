@@ -9,11 +9,6 @@ from dask.base import tokenize
 from dask.dataframe.core import new_dd_object
 from dask.highlevelgraph import HighLevelGraph
 from dask.layers import DataFrameIOLayer
-from distributed.utils_test import cleanup  # noqa: F401
-from distributed.utils_test import client  # noqa: F401
-from distributed.utils_test import cluster_fixture  # noqa: F401
-from distributed.utils_test import loop  # noqa: F401
-from distributed.utils_test import loop_in_thread  # noqa: F401
 from google.api_core import client_info as rest_client_info
 from google.api_core.gapic_v1 import client_info as grpc_client_info
 from google.cloud import bigquery, bigquery_storage
