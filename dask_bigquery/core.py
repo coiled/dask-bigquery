@@ -216,7 +216,8 @@ def to_gbq(
     load_job_kwargs: dict = None,
 ):
     """Write dask dataframe as table using BigQuery LoadJob.
-    Writes Parquet to GCS for intermediary storage.
+
+    This method uses Parquet in GCS as intermediary storage, and requires GCS permission.
 
     Parameters
     ----------
@@ -227,31 +228,26 @@ def to_gbq(
       BigQuery dataset within project
     table_id: str
       BigQuery table within dataset
-    bucket: str
+    bucket: str, default: dask-bigquery-tmp
       Google Cloud Storage bucket name, for intermediary parquet storage. If the bucket doesn't
       exist, it will be created. The account you're using will need Google Cloud Storage
       permissions (storage.objects.create, storage.buckets.create). If a persistent bucket is used,
       it is recommended to configure a retention policy that ensures the data is cleaned up in
       case of job failures.
-      Default: dask-bigquery-tmp.
     credentials : google.auth.credentials.Credentials, optional
       Credentials for accessing Google APIs. Use this parameter to override
       default credentials.
-    delete_bucket: bool
+    delete_bucket: bool, default: False
       Delete bucket in GCS after loading intermediary data to Big Query. The bucket will only be deleted if it
       didn't exist before.
-      Default: False.
-    parquet_kwargs: dict
+    parquet_kwargs: dict, default: {"write_index": False}
       Additional kwargs to pass to dataframe.write_parquet, such as schema, partition_on or
       write_index. For writing parquet, pyarrow is required. "engine" will always be set to "pyarrow", and
       "write_metadata_file" to False, even if different values are passed.
-      Default: {"write_index": False}.
-
-    load_job_kwargs: dict
+    load_job_kwargs: dict, default: {"write_disposition": "WRITE_EMPTY"}
       Additional kwargs to pass when creating bigquery.LoadJobConfig, such as schema,
       time_partitioning, clustering_fields, etc. If "schema" is passed, "autodetect" will be
       set to "False", otherwise "True".
-      Default: {"write_disposition": "WRITE_EMPTY"}.
 
     Returns
     -------
