@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import dask.dataframe as dd
+import gcsfs
 import google.auth
 import pandas as pd
 import pyarrow as pa
@@ -69,6 +70,25 @@ def dataset(df):
             dataset=f"{project_id}.{dataset_id}",
             delete_contents=True,
         )
+
+
+@pytest.fixture
+def bucket():
+    credentials, project_id = google.auth.default()
+    env_project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
+    if env_project_id:
+        project_id = env_project_id
+
+    bucket = f"dask-bigquery-tmp-{uuid.uuid4().hex}"
+
+    fs = gcsfs.GCSFileSystem(
+        project=project_id, access="read_write", token=credentials.token
+    )
+
+    yield bucket, fs
+
+    if fs.exists(bucket):
+        fs.rm(bucket, recursive=True)
 
 
 @pytest.fixture
@@ -139,6 +159,30 @@ def test_to_gbq(df, write_dataset, parquet_kwargs, load_job_kwargs):
         load_job_kwargs=load_job_kwargs,
     )
     assert result.state == "DONE"
+
+
+@pytest.mark.parametrize("delete_bucket", [False, True])
+def test_to_gbq_cleanup(df, write_dataset, bucket, delete_bucket):
+    _, project_id, dataset_id = write_dataset
+    bucket, fs = bucket
+
+    ddf = dd.from_pandas(df, npartitions=2)
+
+    result = to_gbq(
+        ddf,
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id="table_to_write",
+        bucket=bucket,
+        delete_bucket=delete_bucket,
+    )
+    assert result.state == "DONE"
+    if delete_bucket:
+        assert not fs.exists(bucket)
+    else:
+        # bucket should be empty
+        assert fs.exists(bucket)
+        assert len(fs.ls(bucket, detail=False)) == 0
 
 
 def test_to_gbq_with_credentials(df, write_dataset):

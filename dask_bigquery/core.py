@@ -313,4 +313,4 @@ def to_gbq(
         # cleanup temporary parquet
         fs.rm(f"{bucket}/{object_prefix}", recursive=True)
         if delete_bucket:
-            fs.rm()
+            fs.rmdir(bucket)
