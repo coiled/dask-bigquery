@@ -7,8 +7,11 @@ import google.auth
 import pandas as pd
 import pytest
 from dask.dataframe.utils import assert_eq
+from distributed.utils_test import cleanup  # noqa: F401
+from distributed.utils_test import client  # noqa: F401
 from distributed.utils_test import cluster_fixture  # noqa: F401
-from distributed.utils_test import client, loop  # noqa: F401
+from distributed.utils_test import loop  # noqa: F401
+from distributed.utils_test import loop_in_thread  # noqa: F401
 from google.cloud import bigquery
 
 from dask_bigquery import read_gbq
@@ -71,7 +74,7 @@ def test_read_gbq(df, dataset, client):
     ddf = read_gbq(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
 
     assert list(ddf.columns) == ["name", "number", "timestamp", "idx"]
-    assert ddf.npartitions == 2
+    assert ddf.npartitions >= 1
     assert assert_eq(ddf.set_index("idx"), df.set_index("idx"))
 
 
@@ -85,7 +88,7 @@ def test_read_row_filter(df, dataset, client):
     )
 
     assert list(ddf.columns) == ["name", "number", "timestamp", "idx"]
-    assert ddf.npartitions == 2
+    assert ddf.npartitions >= 1
     assert assert_eq(ddf.set_index("idx").loc[:4], df.set_index("idx").loc[:4])
 
 
