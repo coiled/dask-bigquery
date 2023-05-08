@@ -272,3 +272,16 @@ def test_max_streams(df, dataset, client):
         max_stream_count=1,
     )
     assert ddf.npartitions == 1
+
+
+def test_arrow_options(dataset):
+    project_id, dataset_id, table_id = dataset
+    ddf = read_gbq(
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id=table_id,
+        arrow_options={
+            "types_mapper": {pa.string(): pd.StringDtype(storage="pyarrow")}.get
+        },
+    )
+    assert ddf.dtypes["name"] == pd.StringDtype(storage="pyarrow")

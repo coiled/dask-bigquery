@@ -66,22 +66,23 @@ def gcs_fs(project_id, credentials=None):
     )
 
 
-def _stream_to_dfs(bqs_client, stream_name, schema, read_kwargs):
+def _stream_to_dfs(bqs_client, stream_name, schema, read_kwargs, arrow_options):
     """Given a Storage API client and a stream name, yield all dataframes."""
     return [
         pyarrow.ipc.read_record_batch(
             pyarrow.py_buffer(message.arrow_record_batch.serialized_record_batch),
             schema,
-        ).to_pandas()
+        ).to_pandas(**arrow_options)
         for message in bqs_client.read_rows(name=stream_name, offset=0, **read_kwargs)
     ]
 
 
 def bigquery_read(
+    stream_name: str,
     make_create_read_session_request: callable,
     project_id: str,
     read_kwargs: dict,
-    stream_name: str,
+    arrow_options: dict,
 ) -> pd.DataFrame:
     """Read a single batch of rows via BQ Storage API, in Arrow binary format.
 
@@ -93,6 +94,10 @@ def bigquery_read(
       Name of the BigQuery project.
     read_kwargs: dict
       kwargs to pass to read_rows()
+    arrow_options: dict
+      kwargs to pass to record_batch.to_pandas() when converting from pyarrow to pandas. See
+      https://arrow.apache.org/docs/python/generated/pyarrow.RecordBatch.html#pyarrow.RecordBatch.to_pandas
+      for possible values
     stream_name: str
       BigQuery Storage API Stream "name"
       NOTE: Please set if reading from Storage API without any `row_restriction`.
@@ -103,10 +108,12 @@ def bigquery_read(
         schema = pyarrow.ipc.read_schema(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
         )
-        shards = _stream_to_dfs(bqs_client, stream_name, schema, read_kwargs)
+        shards = _stream_to_dfs(
+            bqs_client, stream_name, schema, read_kwargs, arrow_options
+        )
         # NOTE: BQ Storage API can return empty streams
         if len(shards) == 0:
-            shards = [schema.empty_table().to_pandas()]
+            shards = [schema.empty_table().to_pandas(**arrow_options)]
 
     return pd.concat(shards)
 
@@ -119,6 +126,7 @@ def read_gbq(
     columns: list[str] = None,
     max_stream_count: int = 0,
     read_kwargs: dict = None,
+    arrow_options: dict = None,
 ):
     """Read table as dask dataframe using BigQuery Storage API via Arrow format.
     Partitions will be approximately balanced according to BigQuery stream allocation logic.
@@ -140,12 +148,17 @@ def read_gbq(
       streams as possible. Note that BQ may return fewer streams than requested.
     read_kwargs: dict
       kwargs to pass to read_rows()
+    arrow_options: dict
+        kwargs to pass to record_batch.to_pandas() when converting from pyarrow to pandas. See
+        https://arrow.apache.org/docs/python/generated/pyarrow.RecordBatch.html#pyarrow.RecordBatch.to_pandas
+        for possible values
 
     Returns
     -------
         Dask DataFrame
     """
     read_kwargs = read_kwargs or {}
+    arrow_options = arrow_options or {}
     with bigquery_clients(project_id) as (bq_client, bqs_client):
         table_ref = bq_client.get_table(f"{dataset_id}.{table_id}")
         if table_ref.table_type == "VIEW":
@@ -174,7 +187,7 @@ def read_gbq(
         schema = pyarrow.ipc.read_schema(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
         )
-        meta = schema.empty_table().to_pandas()
+        meta = schema.empty_table().to_pandas(**arrow_options)
 
         label = "read-gbq-"
         output_name = label + tokenize(
@@ -191,9 +204,10 @@ def read_gbq(
             [stream.name for stream in session.streams],
             partial(
                 bigquery_read,
-                make_create_read_session_request,
-                project_id,
-                read_kwargs,
+                make_create_read_session_request=make_create_read_session_request,
+                project_id=project_id,
+                read_kwargs=read_kwargs,
+                arrow_options=arrow_options,
             ),
             label=label,
         )
