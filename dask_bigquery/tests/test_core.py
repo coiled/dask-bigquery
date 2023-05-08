@@ -3,6 +3,8 @@ import random
 import uuid
 from datetime import datetime, timedelta, timezone
 
+import dask.dataframe as dd
+import gcsfs
 import google.auth
 import pandas as pd
 import pyarrow as pa
@@ -15,7 +17,7 @@ from distributed.utils_test import loop  # noqa: F401
 from distributed.utils_test import loop_in_thread  # noqa: F401
 from google.cloud import bigquery
 
-from dask_bigquery import read_gbq
+from dask_bigquery import read_gbq, to_gbq
 
 
 @pytest.fixture
@@ -70,12 +72,154 @@ def dataset(df):
         )
 
 
+@pytest.fixture
+def bucket():
+    credentials, project_id = google.auth.default()
+    env_project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
+    if env_project_id:
+        project_id = env_project_id
+
+    bucket = f"dask-bigquery-tmp-{uuid.uuid4().hex}"
+
+    fs = gcsfs.GCSFileSystem(
+        project=project_id, access="read_write", token=credentials.token
+    )
+
+    yield bucket, fs
+
+    if fs.exists(bucket):
+        fs.rm(bucket, recursive=True)
+
+
+@pytest.fixture
+def write_dataset():
+    credentials, project_id = google.auth.default()
+    env_project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
+    if env_project_id:
+        project_id = env_project_id
+
+    dataset_id = uuid.uuid4().hex
+
+    yield credentials, project_id, dataset_id
+
+    with bigquery.Client() as bq_client:
+        bq_client.delete_dataset(
+            dataset=f"{project_id}.{dataset_id}",
+            delete_contents=True,
+        )
+
+
+@pytest.mark.parametrize(
+    "parquet_kwargs,load_job_kwargs",
+    [
+        (None, None),
+        (
+            {
+                "schema": pa.schema(
+                    [
+                        ("name", pa.string()),
+                        ("number", pa.uint8()),
+                        ("timestamp", pa.timestamp("ns")),
+                        ("idx", pa.uint8()),
+                    ]
+                ),
+                "write_index": False,
+            },
+            {
+                "schema": [
+                    bigquery.SchemaField("name", "STRING"),
+                    bigquery.SchemaField("number", "INTEGER"),
+                    bigquery.SchemaField("timestamp", "TIMESTAMP"),
+                    bigquery.SchemaField("idx", "INTEGER"),
+                ],
+                "autodetect": False,
+            },
+        ),
+        ({"write_index": True}, None),  # non-default
+        ({"engine": "fastparquet"}, None),  # non-default, should enforce "pyarrow"
+        (None, {"write_disposition": "WRITE_APPEND"}),  # non-default
+        (
+            None,
+            {
+                "source_format": bigquery.SourceFormat.AVRO
+            },  # non-default, should enforce PARQUET
+        ),
+    ],
+)
+def test_to_gbq(df, write_dataset, parquet_kwargs, load_job_kwargs):
+    _, project_id, dataset_id = write_dataset
+    ddf = dd.from_pandas(df, npartitions=2)
+
+    result = to_gbq(
+        ddf,
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id="table_to_write",
+        parquet_kwargs=parquet_kwargs,
+        load_job_kwargs=load_job_kwargs,
+    )
+    assert result.state == "DONE"
+
+
+@pytest.mark.parametrize("delete_bucket", [False, True])
+def test_to_gbq_cleanup(df, write_dataset, bucket, delete_bucket):
+    _, project_id, dataset_id = write_dataset
+    bucket, fs = bucket
+
+    ddf = dd.from_pandas(df, npartitions=2)
+
+    result = to_gbq(
+        ddf,
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id="table_to_write",
+        bucket=bucket,
+        delete_bucket=delete_bucket,
+    )
+    assert result.state == "DONE"
+    if delete_bucket:
+        assert not fs.exists(bucket)
+    else:
+        # bucket should be empty
+        assert fs.exists(bucket)
+        assert len(fs.ls(bucket, detail=False)) == 0
+
+
+def test_to_gbq_with_credentials(df, write_dataset):
+    credentials, project_id, dataset_id = write_dataset
+    ddf = dd.from_pandas(df, npartitions=2)
+
+    # with explicit credentials
+    result = to_gbq(
+        ddf,
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id="table_to_write",
+        credentials=credentials,
+    )
+    assert result.state == "DONE"
+
+
+def test_roundtrip(df, write_dataset):
+    _, project_id, dataset_id = write_dataset
+    ddf = dd.from_pandas(df, npartitions=2)
+    table_id = "roundtrip_table"
+
+    result = to_gbq(
+        ddf, project_id=project_id, dataset_id=dataset_id, table_id=table_id
+    )
+    assert result.state == "DONE"
+
+    ddf_out = read_gbq(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
+    # bigquery does not guarantee ordering, so let's reindex
+    assert_eq(ddf.set_index("idx"), ddf_out.set_index("idx"))
+
+
 def test_read_gbq(df, dataset, client):
     project_id, dataset_id, table_id = dataset
     ddf = read_gbq(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
 
     assert list(ddf.columns) == ["name", "number", "timestamp", "idx"]
-    assert ddf.npartitions >= 1
     assert assert_eq(ddf.set_index("idx"), df.set_index("idx"))
 
 
@@ -89,7 +233,6 @@ def test_read_row_filter(df, dataset, client):
     )
 
     assert list(ddf.columns) == ["name", "number", "timestamp", "idx"]
-    assert ddf.npartitions >= 1
     assert assert_eq(ddf.set_index("idx").loc[:4], df.set_index("idx").loc[:4])
 
 
