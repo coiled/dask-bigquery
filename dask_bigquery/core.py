@@ -68,7 +68,9 @@ def bigquery_read(
     read_kwargs: dict
       kwargs to pass to read_rows()
     arrow_options: dict
-      kwargs to pass to record_batch.to_pandas() when converting from pyarrow to pandas
+      kwargs to pass to record_batch.to_pandas() when converting from pyarrow to pandas. See
+      https://arrow.apache.org/docs/python/generated/pyarrow.RecordBatch.html#pyarrow.RecordBatch.to_pandas
+      for possible values
     stream_name: str
       BigQuery Storage API Stream "name"
       NOTE: Please set if reading from Storage API without any `row_restriction`.
@@ -120,7 +122,9 @@ def read_gbq(
     read_kwargs: dict
       kwargs to pass to read_rows()
     arrow_options: dict
-        kwargs to pass to record_batch.to_pandas() when converting from pyarrow to pandas
+        kwargs to pass to record_batch.to_pandas() when converting from pyarrow to pandas. See
+        https://arrow.apache.org/docs/python/generated/pyarrow.RecordBatch.html#pyarrow.RecordBatch.to_pandas
+        for possible values
 
     Returns
     -------
