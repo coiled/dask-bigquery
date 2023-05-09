@@ -88,6 +88,8 @@ res = to_gbq(
 )
 ```
 
+`to_gbq` writes intermediary Parquet to Google Storage bucket. Default bucket name is set to "dask-bigquery-tmp". You can provide a diferent bucket name by setting the parameter: `bucket="my-gs-bucket"`.
+
 ## Run tests locally
 
 To run the tests locally you need to be authenticated and have a project created on that account. If you're using a service account, when created you need to select the role of "BigQuery Admin" in the section "Grant this service account access to project". 
