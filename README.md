@@ -22,8 +22,9 @@ conda install -c conda-forge dask-bigquery
 
 ## Example
 
-`dask-bigquery` assumes that you are already authenticated. 
+`dask-bigquery` assumes that you are already authenticated.
 
+### Reading from BigQuery
 ```python
 import dask_bigquery
 
@@ -36,9 +37,26 @@ ddf = dask_bigquery.read_gbq(
 ddf.head()
 ```
 
+### Writing to BigQuery
+Uploads to BigQuery are performed by writing the data in Parquet format to an intermediate storage
+bucket, then using a BigQuery load job to ingest the data into a table.
+```python
+import dask
+import dask_bigquery
+
+ddf = dask.datasets.timeseries(freq="1min")
+dask_bigquery.to_gbq(
+    ddf,
+    project_id="your_project_id",
+    dataset_id="your_dataset",
+    table_id="your_table",
+    bucket="your_bucket",  # bucket will be created if it doesn't exist
+)
+
+
 ## Run tests locally
 
-To run the tests locally you need to be authenticated and have a project created on that account. If you're using a service account, when created you need to select the role of "BigQuery Admin" in the section "Grant this service account access to project". 
+To run the tests locally you need to be authenticated and have a project created on that account. If you're using a service account, when created you need to select the role of "BigQuery Admin" in the section "Grant this service account access to project".
 
 You can run the tests with
 
