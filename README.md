@@ -20,7 +20,17 @@ or with `conda`:
 conda install -c conda-forge dask-bigquery
 ```
 
-## Example
+## Authentication
+
+Default credentials can be provided by setting the environment variable `GOOGLE_APPLICATION_CREDENTIALS` to the file name:
+
+```sh
+$ export GOOGLE_APPLICATION_CREDENTIALS=/home/<username>/google.json
+```
+
+For information on obtaining the credentials, use [Google API documentation](https://developers.google.com/workspace/guides/create-credentials).
+
+## Example: read from BigQuery
 
 `dask-bigquery` assumes that you are already authenticated. 
 
@@ -34,6 +44,48 @@ ddf = dask_bigquery.read_gbq(
 )
 
 ddf.head()
+```
+## Example: write to BigQuery
+
+With default credentials:
+
+```python
+import random
+import pandas as pd
+import dask.dataframe as dd
+import dask_bigquery
+from datetime import datetime, timedelta
+
+df = pd.DataFrame({
+    "name": [random.choice(["Carol", "Doug", "John", "Mark", "Susan", "Jing-Mei"]) for _ in range(10)],
+    "number": [random.randint(0, 100) for _ in range(10)],
+    "timestamp": [datetime.now() - timedelta(days=random.randint(0, 3)) for _ in range(10)]
+})
+ddf = dd.from_pandas(df, npartitions=2)
+res = dask_bigquery.to_gbq(
+    ddf,
+    project_id="my_project_id",
+    dataset_id="my_dataset_id",
+    table_id="my_table_name",
+)
+```
+
+With explicit credentials:
+
+```python
+from google.oauth2.service_account import Credentials
+
+# credentials
+creds_dict = {"type": ..., "project_id": ..., "private_key_id": ...}
+credentials = Credentials.from_service_account_info(info=creds_dict)
+
+res = to_gbq(
+    ddf,
+    project_id="my_project_id",
+    dataset_id="my_dataset_id",
+    table_id="my_table_name",
+    credentials=credentials,
+)
 ```
 
 ## Run tests locally
