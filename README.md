@@ -32,7 +32,7 @@ For information on obtaining the credentials, use [Google API documentation](htt
 
 ## Example: read from BigQuery
 
-`dask-bigquery` assumes that you are already authenticated. 
+`dask-bigquery` assumes that you are already authenticated.
 
 ```python
 import dask_bigquery
@@ -45,6 +45,7 @@ ddf = dask_bigquery.read_gbq(
 
 ddf.head()
 ```
+
 ## Example: write to BigQuery
 
 With default credentials:
@@ -81,11 +82,13 @@ res = to_gbq(
 )
 ```
 
-`to_gbq` writes intermediary Parquet to Google Storage bucket. Default bucket name is set to "dask-bigquery-tmp". You can provide a diferent bucket name by setting the parameter: `bucket="my-gs-bucket"`.
+Before loading data into BigQuery, `to_gbq` writes intermediary Parquet to a Google Storage bucket. Default bucket name is `dask-bigquery-tmp`. You can provide a diferent bucket name by setting the parameter: `bucket="my-gs-bucket"`. After the job is done, the intermediary data is deleted.
+
+If you're using a persistent bucket, we recommend configuring a retention policy that ensures the data is cleaned up even in case of job failures.
 
 ## Run tests locally
 
-To run the tests locally you need to be authenticated and have a project created on that account. If you're using a service account, when created you need to select the role of "BigQuery Admin" in the section "Grant this service account access to project". 
+To run the tests locally you need to be authenticated and have a project created on that account. If you're using a service account, when created you need to select the role of "BigQuery Admin" in the section "Grant this service account access to project".
 
 You can run the tests with
 
@@ -103,6 +106,6 @@ This project stems from the discussion in
 developed by [Brett Naul](https://github.com/bnaul), [Jacob Hayes](https://github.com/JacobHayes),
 and [Steven Soojin Kim](https://github.com/mikss).
 
-## License 
+## License
 
 [BSD-3](LICENSE)
