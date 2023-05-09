@@ -50,18 +50,11 @@ ddf.head()
 With default credentials:
 
 ```python
-import random
-import pandas as pd
-import dask.dataframe as dd
+import dask
 import dask_bigquery
-from datetime import datetime, timedelta
 
-df = pd.DataFrame({
-    "name": [random.choice(["Carol", "Doug", "John", "Mark", "Susan", "Jing-Mei"]) for _ in range(10)],
-    "number": [random.randint(0, 100) for _ in range(10)],
-    "timestamp": [datetime.now() - timedelta(days=random.randint(0, 3)) for _ in range(10)]
-})
-ddf = dd.from_pandas(df, npartitions=2)
+ddf = dask.datasets.timeseries(freq="1min")
+
 res = dask_bigquery.to_gbq(
     ddf,
     project_id="my_project_id",
