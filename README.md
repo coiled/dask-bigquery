@@ -20,9 +20,19 @@ or with `conda`:
 conda install -c conda-forge dask-bigquery
 ```
 
-## Example
+## Authentication
 
-`dask-bigquery` assumes that you are already authenticated. 
+Default credentials can be provided by setting the environment variable `GOOGLE_APPLICATION_CREDENTIALS` to the file name:
+
+```sh
+$ export GOOGLE_APPLICATION_CREDENTIALS=/home/<username>/google.json
+```
+
+For information on obtaining the credentials, use [Google API documentation](https://developers.google.com/workspace/guides/create-credentials).
+
+## Example: read from BigQuery
+
+`dask-bigquery` assumes that you are already authenticated.
 
 ```python
 import dask_bigquery
@@ -36,9 +46,49 @@ ddf = dask_bigquery.read_gbq(
 ddf.head()
 ```
 
+## Example: write to BigQuery
+
+With default credentials:
+
+```python
+import dask
+import dask_bigquery
+
+ddf = dask.datasets.timeseries(freq="1min")
+
+res = dask_bigquery.to_gbq(
+    ddf,
+    project_id="my_project_id",
+    dataset_id="my_dataset_id",
+    table_id="my_table_name",
+)
+```
+
+With explicit credentials:
+
+```python
+from google.oauth2.service_account import Credentials
+
+# credentials
+creds_dict = {"type": ..., "project_id": ..., "private_key_id": ...}
+credentials = Credentials.from_service_account_info(info=creds_dict)
+
+res = to_gbq(
+    ddf,
+    project_id="my_project_id",
+    dataset_id="my_dataset_id",
+    table_id="my_table_name",
+    credentials=credentials,
+)
+```
+
+Before loading data into BigQuery, `to_gbq` writes intermediary Parquet to a Google Storage bucket. Default bucket name is `dask-bigquery-tmp`. You can provide a diferent bucket name by setting the parameter: `bucket="my-gs-bucket"`. After the job is done, the intermediary data is deleted.
+
+If you're using a persistent bucket, we recommend configuring a retention policy that ensures the data is cleaned up even in case of job failures.
+
 ## Run tests locally
 
-To run the tests locally you need to be authenticated and have a project created on that account. If you're using a service account, when created you need to select the role of "BigQuery Admin" in the section "Grant this service account access to project". 
+To run the tests locally you need to be authenticated and have a project created on that account. If you're using a service account, when created you need to select the role of "BigQuery Admin" in the section "Grant this service account access to project".
 
 You can run the tests with
 
@@ -56,6 +106,6 @@ This project stems from the discussion in
 developed by [Brett Naul](https://github.com/bnaul), [Jacob Hayes](https://github.com/JacobHayes),
 and [Steven Soojin Kim](https://github.com/mikss).
 
-## License 
+## License
 
 [BSD-3](LICENSE)
