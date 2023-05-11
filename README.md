@@ -22,7 +22,13 @@ conda install -c conda-forge dask-bigquery
 
 ## Authentication
 
-Default credentials can be provided by setting the environment variable `GOOGLE_APPLICATION_CREDENTIALS` to the file name:
+By default, `dask-bigquery` will use the [Application Default Credentials](https://cloud.google.com/docs/authentication/provide-credentials-adc). When running code locally, you can set this to use your user credentials by running
+
+```sh
+$ gcloud auth application-default login
+```
+
+User credentials require interactive login. For settings where this isn't possible, you'll need to create a service account. You can set the Application Default Credentials to the service account key using the `GOOGLE_APPLICATION_CREDENTIALS` environment variable:
 
 ```sh
 $ export GOOGLE_APPLICATION_CREDENTIALS=/home/<username>/google.json
