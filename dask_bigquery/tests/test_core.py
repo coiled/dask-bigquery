@@ -47,6 +47,7 @@ def dataset(df):
     time_partitioning = bigquery.TimePartitioning(
         type_=bigquery.TimePartitioningType.DAY,
         field="timestamp",
+        # Ensure that we support required filters: https://github.com/coiled/dask-bigquery/issues/56
         require_partition_filter=True,
     )
 
