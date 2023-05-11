@@ -164,7 +164,7 @@ def read_gbq(
         if table_ref.table_type == "VIEW":
             raise TypeError("Table type VIEW not supported")
 
-        def make_create_read_session_request(row_filter="", max_stream_count=0):
+        def make_create_read_session_request():
             return bigquery_storage.types.CreateReadSessionRequest(
                 max_stream_count=max_stream_count,  # 0 -> use as many as BQ Storage will provide
                 parent=f"projects/{project_id}",
@@ -180,9 +180,7 @@ def read_gbq(
         # Create a read session in order to detect the schema.
         # Read sessions are light weight and will be auto-deleted after 24 hours.
         session = bqs_client.create_read_session(
-            make_create_read_session_request(
-                row_filter=row_filter, max_stream_count=max_stream_count
-            )
+            make_create_read_session_request()
         )
         schema = pyarrow.ipc.read_schema(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
