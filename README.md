@@ -2,7 +2,7 @@
 
 [![Tests](https://github.com/coiled/dask-bigquery/actions/workflows/tests.yml/badge.svg)](https://github.com/coiled/dask-bigquery/actions/workflows/tests.yml) [![Linting](https://github.com/coiled/dask-bigquery/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/coiled/dask-bigquery/actions/workflows/pre-commit.yml)
 
-Read data from [Google BigQuery](https://cloud.google.com/bigquery) with Dask.
+Read/write data from/to [Google BigQuery](https://cloud.google.com/bigquery) with Dask.
 
 This package uses the BigQuery Storage API. Please refer to the [data extraction pricing table](https://cloud.google.com/bigquery/pricing#data_extraction_pricing) for associated costs while using Dask-BigQuery.
 
@@ -19,6 +19,26 @@ or with `conda`:
 ```
 conda install -c conda-forge dask-bigquery
 ```
+
+## Google Cloud permissions
+
+For reading from BiqQuery, you need the following roles to be enabled on the account:
+
+- `BigQuery Read Session User`
+- `BigQuery Data Viewer`, `BigQuery Data Editor`, or `BigQuery Data Owner`
+
+Alternately, `BigQuery Admin` would give you full access to sessions and data.
+
+For writing to BigQuery, the following roles are sufficient:
+
+- `BigQuery Data Editor`
+- `Storage Object Creator`
+
+The minimal permissions to cover reading and writing:
+
+- `BigQuery Data Editor`
+- `BigQuery Read Session User`
+- `Storage Object Creator`
 
 ## Authentication
 
