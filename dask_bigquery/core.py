@@ -223,7 +223,7 @@ def to_gbq(
     project_id: str,
     dataset_id: str,
     table_id: str,
-    bucket: str = "dask-bigquery-tmp",
+    bucket: str = None,
     credentials: Credentials = None,
     delete_bucket: bool = False,
     parquet_kwargs: dict = None,
@@ -242,7 +242,7 @@ def to_gbq(
       BigQuery dataset within project
     table_id: str
       BigQuery table within dataset
-    bucket: str, default: dask-bigquery-tmp
+    bucket: str, default: {project_id}-dask-bigquery
       Google Cloud Storage bucket name, for intermediary parquet storage. If the bucket doesn't
       exist, it will be created. The account you're using will need Google Cloud Storage
       permissions (storage.objects.create, storage.buckets.create). If a persistent bucket is used,
@@ -279,6 +279,9 @@ def to_gbq(
 
     # override the following kwargs, even if user specified them
     load_job_kwargs_used["source_format"] = bigquery.SourceFormat.PARQUET
+
+    if bucket is None:
+        bucket = f"{project_id}-dask-bigquery"
 
     fs = gcs_fs(project_id, credentials=credentials)
     if fs.exists(bucket):

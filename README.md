@@ -82,7 +82,7 @@ res = to_gbq(
 )
 ```
 
-Before loading data into BigQuery, `to_gbq` writes intermediary Parquet to a Google Storage bucket. Default bucket name is `dask-bigquery-tmp`. You can provide a diferent bucket name by setting the parameter: `bucket="my-gs-bucket"`. After the job is done, the intermediary data is deleted.
+Before loading data into BigQuery, `to_gbq` writes intermediary Parquet to a Google Storage bucket. Default bucket name is `<your_project_id>-dask-bigquery`. You can provide a diferent bucket name by setting the parameter: `bucket="my-gs-bucket"`. After the job is done, the intermediary data is deleted.
 
 If you're using a persistent bucket, we recommend configuring a retention policy that ensures the data is cleaned up even in case of job failures.
 
