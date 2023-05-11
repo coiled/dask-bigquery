@@ -16,11 +16,12 @@ from distributed.utils_test import cluster_fixture  # noqa: F401
 from distributed.utils_test import loop  # noqa: F401
 from distributed.utils_test import loop_in_thread  # noqa: F401
 from google.cloud import bigquery
+from google.api_core.exceptions import InvalidArgument
 
 from dask_bigquery import read_gbq, to_gbq
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def df():
     records = [
         {
@@ -35,20 +36,34 @@ def df():
     yield pd.DataFrame(records)
 
 
-@pytest.fixture
-def dataset(df):
+@pytest.fixture(scope="module")
+def dataset():
     project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
     if not project_id:
         credentials, project_id = google.auth.default()
     dataset_id = uuid.uuid4().hex
+
+    with bigquery.Client() as bq_client:
+        dataset = bigquery.Dataset(f"{project_id}.{dataset_id}")
+        bq_client.create_dataset(dataset)
+
+        yield dataset
+
+        bq_client.delete_dataset(
+            dataset=f"{project_id}.{dataset_id}",
+            delete_contents=True,
+        )
+
+
+@pytest.fixture(scope="module")
+def table(dataset, df):
+    project_id = dataset.project
+    dataset_id = dataset.dataset_id
     table_id = "table_test"
-    # push data to gbq
 
     time_partitioning = bigquery.TimePartitioning(
         type_=bigquery.TimePartitioningType.DAY,
         field="timestamp",
-        # Ensure that we support required filters: https://github.com/coiled/dask-bigquery/issues/56
-        require_partition_filter=True,
     )
 
     job_config = bigquery.LoadJobConfig(
@@ -56,8 +71,6 @@ def dataset(df):
     )
 
     with bigquery.Client() as bq_client:
-        dataset = bigquery.Dataset(f"{project_id}.{dataset_id}")
-        bq_client.create_dataset(dataset)
         job = bq_client.load_table_from_dataframe(
             df,
             destination=f"{project_id}.{dataset_id}.{table_id}",
@@ -67,11 +80,35 @@ def dataset(df):
 
     yield (project_id, dataset_id, table_id)
 
+
+@pytest.fixture(scope="module")
+def required_partition_filter_table(dataset, df):
+    project_id = dataset.project
+    dataset_id = dataset.dataset_id
+    table_id = "partitioned_table_test"
+
+    time_partitioning = bigquery.TimePartitioning(
+        type_=bigquery.TimePartitioningType.DAY,
+        field="timestamp",
+    )
+
+    job_config = bigquery.LoadJobConfig(
+        write_disposition="WRITE_TRUNCATE",
+        time_partitioning=time_partitioning,
+    )
+
     with bigquery.Client() as bq_client:
-        bq_client.delete_dataset(
-            dataset=f"{project_id}.{dataset_id}",
-            delete_contents=True,
-        )
+        job = bq_client.load_table_from_dataframe(
+            df,
+            destination=f"{project_id}.{dataset_id}.{table_id}",
+            job_config=job_config,
+        )  # Make an API request.
+        job.result()
+        table = bq_client.get_table(f"{project_id}.{dataset_id}.{table_id}")
+        table.require_partition_filter = True
+        bq_client.update_table(table, ["require_partition_filter"])
+
+    yield (project_id, dataset_id, table_id)
 
 
 @pytest.fixture
@@ -217,16 +254,16 @@ def test_roundtrip(df, write_dataset):
     assert_eq(ddf.set_index("idx"), ddf_out.set_index("idx"))
 
 
-def test_read_gbq(df, dataset, client):
-    project_id, dataset_id, table_id = dataset
+def test_read_gbq(df, table, client):
+    project_id, dataset_id, table_id = table
     ddf = read_gbq(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
 
     assert list(ddf.columns) == ["name", "number", "timestamp", "idx"]
     assert assert_eq(ddf.set_index("idx"), df.set_index("idx"))
 
 
-def test_read_row_filter(df, dataset, client):
-    project_id, dataset_id, table_id = dataset
+def test_read_row_filter(df, table, client):
+    project_id, dataset_id, table_id = table
     ddf = read_gbq(
         project_id=project_id,
         dataset_id=dataset_id,
@@ -238,8 +275,8 @@ def test_read_row_filter(df, dataset, client):
     assert assert_eq(ddf.set_index("idx").loc[:4], df.set_index("idx").loc[:4])
 
 
-def test_read_kwargs(dataset, client):
-    project_id, dataset_id, table_id = dataset
+def test_read_kwargs(table, client):
+    project_id, dataset_id, table_id = table
     ddf = read_gbq(
         project_id=project_id,
         dataset_id=dataset_id,
@@ -251,8 +288,8 @@ def test_read_kwargs(dataset, client):
         ddf.compute()
 
 
-def test_read_columns(df, dataset, client):
-    project_id, dataset_id, table_id = dataset
+def test_read_columns(df, table, client):
+    project_id, dataset_id, table_id = table
     assert df.shape[1] > 1, "Test data should have multiple columns"
 
     columns = ["name"]
@@ -265,8 +302,8 @@ def test_read_columns(df, dataset, client):
     assert list(ddf.columns) == columns
 
 
-def test_max_streams(df, dataset, client):
-    project_id, dataset_id, table_id = dataset
+def test_max_streams(df, table, client):
+    project_id, dataset_id, table_id = table
     ddf = read_gbq(
         project_id=project_id,
         dataset_id=dataset_id,
@@ -276,8 +313,8 @@ def test_max_streams(df, dataset, client):
     assert ddf.npartitions == 1
 
 
-def test_arrow_options(dataset):
-    project_id, dataset_id, table_id = dataset
+def test_arrow_options(table):
+    project_id, dataset_id, table_id = table
     ddf = read_gbq(
         project_id=project_id,
         dataset_id=dataset_id,
@@ -287,3 +324,22 @@ def test_arrow_options(dataset):
         },
     )
     assert ddf.dtypes["name"] == pd.StringDtype(storage="pyarrow")
+
+
+def test_read_required_partition_filter(df, required_partition_filter_table):
+    project_id, dataset_id, table_id = required_partition_filter_table
+
+    with pytest.raises(InvalidArgument):
+        read_gbq(
+            project_id=project_id,
+            dataset_id=dataset_id,
+            table_id=table_id,
+        ).head()
+
+    df = read_gbq(
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id=table_id,
+        row_filter=f"DATE(timestamp)='{df.timestamp.min().date()}'",
+    ).head()
+    assert not df.empty
