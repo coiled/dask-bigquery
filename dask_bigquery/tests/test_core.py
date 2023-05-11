@@ -15,8 +15,8 @@ from distributed.utils_test import client  # noqa: F401
 from distributed.utils_test import cluster_fixture  # noqa: F401
 from distributed.utils_test import loop  # noqa: F401
 from distributed.utils_test import loop_in_thread  # noqa: F401
-from google.cloud import bigquery
 from google.api_core.exceptions import InvalidArgument
+from google.cloud import bigquery
 
 from dask_bigquery import read_gbq, to_gbq
 
