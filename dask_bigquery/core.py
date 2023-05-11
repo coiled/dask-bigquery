@@ -179,9 +179,7 @@ def read_gbq(
 
         # Create a read session in order to detect the schema.
         # Read sessions are light weight and will be auto-deleted after 24 hours.
-        session = bqs_client.create_read_session(
-            make_create_read_session_request()
-        )
+        session = bqs_client.create_read_session(make_create_read_session_request())
         schema = pyarrow.ipc.read_schema(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
         )
