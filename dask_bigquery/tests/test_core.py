@@ -47,7 +47,8 @@ def dataset(df):
     time_partitioning = bigquery.TimePartitioning(
         type_=bigquery.TimePartitioningType.DAY,
         field="timestamp",
-    )  # field to use for partitioning
+        require_partition_filter=True,
+    )
 
     job_config = bigquery.LoadJobConfig(
         write_disposition="WRITE_TRUNCATE", time_partitioning=time_partitioning
