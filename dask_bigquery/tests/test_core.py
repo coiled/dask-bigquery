@@ -20,6 +20,8 @@ from google.cloud import bigquery
 
 from dask_bigquery import read_gbq, to_gbq
 
+DASK_BIGQUERY_BUCKET = "dask-bigquery-tmp"
+
 
 @pytest.fixture(scope="module")
 def df():
@@ -196,6 +198,7 @@ def test_to_gbq(df, write_dataset, parquet_kwargs, load_job_kwargs):
         table_id="table_to_write",
         parquet_kwargs=parquet_kwargs,
         load_job_kwargs=load_job_kwargs,
+        bucket=DASK_BIGQUERY_BUCKET,
     )
     assert result.state == "DONE"
 
@@ -230,6 +233,7 @@ def test_to_gbq_with_credentials(df, write_dataset):
         dataset_id=dataset_id,
         table_id="table_to_write",
         credentials=credentials,
+        bucket=DASK_BIGQUERY_BUCKET,
     )
     assert result.state == "DONE"
 
@@ -240,7 +244,11 @@ def test_roundtrip(df, write_dataset):
     table_id = "roundtrip_table"
 
     result = to_gbq(
-        ddf, project_id=project_id, dataset_id=dataset_id, table_id=table_id
+        ddf,
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id=table_id,
+        bucket=DASK_BIGQUERY_BUCKET,
     )
     assert result.state == "DONE"
 
