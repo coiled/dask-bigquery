@@ -200,8 +200,7 @@ def test_to_gbq(df, write_dataset, parquet_kwargs, load_job_kwargs):
     assert result.state == "DONE"
 
 
-@pytest.mark.parametrize("delete_bucket", [False, True])
-def test_to_gbq_cleanup(df, write_dataset, bucket, delete_bucket):
+def test_to_gbq_cleanup(df, write_dataset, bucket):
     _, project_id, dataset_id = write_dataset
     bucket, fs = bucket
 
@@ -213,15 +212,11 @@ def test_to_gbq_cleanup(df, write_dataset, bucket, delete_bucket):
         dataset_id=dataset_id,
         table_id="table_to_write",
         bucket=bucket,
-        delete_bucket=delete_bucket,
     )
     assert result.state == "DONE"
-    if delete_bucket:
-        assert not fs.exists(bucket)
-    else:
-        # bucket should be empty
-        assert fs.exists(bucket)
-        assert len(fs.ls(bucket, detail=False)) == 0
+    # bucket should be empty
+    assert fs.exists(bucket)
+    assert len(fs.ls(bucket, detail=False)) == 0
 
 
 def test_to_gbq_with_credentials(df, write_dataset):

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import warnings
 from contextlib import contextmanager
 from functools import partial
 
@@ -219,9 +218,8 @@ def to_gbq(
     project_id: str,
     dataset_id: str,
     table_id: str,
-    bucket: str = "dask-bigquery-tmp",
+    bucket: str = None,
     credentials: Credentials = None,
-    delete_bucket: bool = False,
     parquet_kwargs: dict = None,
     load_job_kwargs: dict = None,
 ):
@@ -238,18 +236,14 @@ def to_gbq(
       BigQuery dataset within project
     table_id: str
       BigQuery table within dataset
-    bucket: str, default: dask-bigquery-tmp
-      Google Cloud Storage bucket name, for intermediary parquet storage. If the bucket doesn't
-      exist, it will be created. The account you're using will need Google Cloud Storage
-      permissions (storage.objects.create, storage.buckets.create). If a persistent bucket is used,
-      it is recommended to configure a retention policy that ensures the data is cleaned up in
-      case of job failures.
+    bucket: str, default: None
+      Google Cloud Storage bucket name, for intermediary parquet storage. The bucket should
+      exist. The account you're using needs Google Cloud Storage permissions (storage.objects.create,
+      storage.buckets.list). It is recommended to configure a retention policy that ensures the
+      data in the bucket is cleaned up in case of job failures.
     credentials : google.auth.credentials.Credentials, optional
       Credentials for accessing Google APIs. Use this parameter to override
       default credentials.
-    delete_bucket: bool, default: False
-      Delete bucket in GCS after loading intermediary data to Big Query. The bucket will only be deleted if it
-      didn't exist before.
     parquet_kwargs: dict, default: {"write_index": False}
       Additional kwargs to pass to dataframe.write_parquet, such as schema, partition_on or
       write_index. For writing parquet, pyarrow is required. "engine" will always be set to "pyarrow", and
@@ -263,6 +257,9 @@ def to_gbq(
     -------
         LoadJobResult
     """
+    if bucket is None:
+        raise ValueError("`bucket` is required")
+
     if project_id is None and hasattr(credentials, "project_id"):
         # service account credentials have a project associated with them
         project_id = credentials.project_id
@@ -277,16 +274,7 @@ def to_gbq(
     load_job_kwargs_used["source_format"] = bigquery.SourceFormat.PARQUET
 
     fs = gcs_fs(project_id, credentials=credentials)
-    if fs.exists(bucket):
-        if delete_bucket:
-            # if we didn't create it, we shouldn't delete it
-            warnings.warn(
-                "`delete_bucket=True` can only be used with a non-existing bucket.",
-                category=UserWarning,
-                stacklevel=2,
-            )
-            delete_bucket = False
-    else:
+    if not fs.exists(bucket):
         fs.mkdir(bucket)
 
     token = tokenize(df)
@@ -322,5 +310,3 @@ def to_gbq(
     finally:
         # cleanup temporary parquet
         fs.rm(f"{bucket}/{object_prefix}", recursive=True)
-        if delete_bucket:
-            fs.rmdir(bucket)
