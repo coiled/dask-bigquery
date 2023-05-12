@@ -273,6 +273,9 @@ def to_gbq(
     # override the following kwargs, even if user specified them
     load_job_kwargs_used["source_format"] = bigquery.SourceFormat.PARQUET
 
+    if bucket is None:
+        bucket = f"{project_id}-dask-bigquery"
+
     fs = gcs_fs(project_id, credentials=credentials)
     if not fs.exists(bucket):
         fs.mkdir(bucket)

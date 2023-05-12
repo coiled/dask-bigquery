@@ -222,10 +222,11 @@ def test_to_gbq_cleanup(df, write_dataset, bucket):
     assert len(fs.ls(bucket, detail=False)) == 0
 
 
-def test_to_gbq_with_credentials(df, write_dataset):
+def test_to_gbq_with_credentials(df, write_dataset, monkeypatch):
     credentials, project_id, dataset_id = write_dataset
     ddf = dd.from_pandas(df, npartitions=2)
 
+    monkeypatch.delenv("GOOGLE_DEFAULT_CREDENTIALS", raising=False)
     # with explicit credentials
     result = to_gbq(
         ddf,
