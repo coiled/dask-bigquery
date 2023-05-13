@@ -5,7 +5,6 @@ import warnings
 from contextlib import contextmanager
 from functools import partial
 
-import gcsfs
 import pandas as pd
 import pyarrow
 from dask.base import tokenize
@@ -14,9 +13,8 @@ from dask.highlevelgraph import HighLevelGraph
 from dask.layers import DataFrameIOLayer
 from google.api_core import client_info as rest_client_info
 from google.api_core.gapic_v1 import client_info as grpc_client_info
-from google.auth import default as google_auth_default
 from google.auth.credentials import Credentials
-from google.cloud import bigquery, bigquery_storage
+from google.cloud import bigquery, bigquery_storage, storage
 
 import dask_bigquery
 
@@ -56,14 +54,12 @@ def bigquery_client(project_id, credentials=None):
         yield client
 
 
-def gcs_fs(project_id, credentials=None):
-    """Create the GCSFS client"""
-    if credentials is None:
-        credentials, default_project_id = google_auth_default()
-        project_id = project_id or default_project_id
-    return gcsfs.GCSFileSystem(
-        project=project_id, access="read_write", token=credentials.token
+def gcs_client(project_id, credentials=None):
+    """Create the Google Storage Client"""
+    client_info = rest_client_info.ClientInfo(
+        user_agent=f"dask-bigquery/{dask_bigquery.__version__}"
     )
+    return storage.Client(project_id, credentials=credentials, client_info=client_info)
 
 
 def _stream_to_dfs(bqs_client, stream_name, schema, read_kwargs, arrow_options):
@@ -279,8 +275,9 @@ def to_gbq(
     if bucket is None:
         bucket = f"{project_id}-dask-bigquery"
 
-    fs = gcs_fs(project_id, credentials=credentials)
-    if fs.exists(bucket):
+    storage_client = gcs_client(project_id, credentials=credentials)
+    storage_bucket = storage_client.lookup_bucket(bucket_name=bucket)
+    if storage_bucket:
         if delete_bucket:
             # if we didn't create it, we shouldn't delete it
             warnings.warn(
@@ -290,7 +287,7 @@ def to_gbq(
             )
             delete_bucket = False
     else:
-        fs.mkdir(bucket)
+        storage_bucket = storage_client.create_bucket(bucket)
 
     token = tokenize(df)
     object_prefix = f"{dt.datetime.utcnow().isoformat()}_{token}"
@@ -324,6 +321,8 @@ def to_gbq(
         return job.result()
     finally:
         # cleanup temporary parquet
-        fs.rm(f"{bucket}/{object_prefix}", recursive=True)
-        if delete_bucket:
-            fs.rmdir(bucket)
+        if storage_bucket:
+            for blob in storage_bucket.list_blobs(prefix=object_prefix):
+                blob.delete()
+            if delete_bucket:
+                storage_bucket.delete()

@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import dask.dataframe as dd
-import gcsfs
 import google.auth
 import pandas as pd
 import pyarrow as pa
@@ -16,7 +15,7 @@ from distributed.utils_test import cluster_fixture  # noqa: F401
 from distributed.utils_test import loop  # noqa: F401
 from distributed.utils_test import loop_in_thread  # noqa: F401
 from google.api_core.exceptions import InvalidArgument
-from google.cloud import bigquery
+from google.cloud import bigquery, storage
 
 from dask_bigquery import read_gbq, to_gbq
 
@@ -120,14 +119,15 @@ def bucket():
 
     bucket = f"dask-bigquery-tmp-{uuid.uuid4().hex}"
 
-    fs = gcsfs.GCSFileSystem(
-        project=project_id, access="read_write", token=credentials.token
-    )
+    client = storage.Client(project=project_id, credentials=credentials)
 
-    yield bucket, fs
+    yield bucket, client
 
-    if fs.exists(bucket):
-        fs.rm(bucket, recursive=True)
+    storage_bucket = client.lookup_bucket(bucket_name=bucket)
+    if storage_bucket:
+        for blob in storage_bucket.list_blobs():
+            blob.delete()
+        storage_bucket.delete()
 
 
 @pytest.fixture
@@ -203,7 +203,7 @@ def test_to_gbq(df, write_dataset, parquet_kwargs, load_job_kwargs):
 @pytest.mark.parametrize("delete_bucket", [False, True])
 def test_to_gbq_cleanup(df, write_dataset, bucket, delete_bucket):
     _, project_id, dataset_id = write_dataset
-    bucket, fs = bucket
+    bucket, storage_client = bucket
 
     ddf = dd.from_pandas(df, npartitions=2)
 
@@ -216,12 +216,13 @@ def test_to_gbq_cleanup(df, write_dataset, bucket, delete_bucket):
         delete_bucket=delete_bucket,
     )
     assert result.state == "DONE"
+    storage_bucket = storage_client.lookup_bucket(bucket_name=bucket)
     if delete_bucket:
-        assert not fs.exists(bucket)
+        assert storage_bucket is None
     else:
         # bucket should be empty
-        assert fs.exists(bucket)
-        assert len(fs.ls(bucket, detail=False)) == 0
+        assert storage_bucket is not None
+        assert len(list(storage_bucket.list_blobs())) == 0
 
 
 def test_to_gbq_with_credentials(df, write_dataset, monkeypatch):
