@@ -62,7 +62,7 @@ def gcs_fs(project_id, credentials=None):
         credentials, default_project_id = google_auth_default()
         project_id = project_id or default_project_id
     return gcsfs.GCSFileSystem(
-        project=project_id, access="read_write", token=credentials.token
+        project=project_id, access="read_write", token=credentials
     )
 
 

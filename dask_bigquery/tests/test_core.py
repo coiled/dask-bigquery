@@ -120,9 +120,7 @@ def bucket():
 
     bucket = f"dask-bigquery-tmp-{uuid.uuid4().hex}"
 
-    fs = gcsfs.GCSFileSystem(
-        project=project_id, access="read_write", token=credentials.token
-    )
+    fs = gcsfs.GCSFileSystem(project=project_id, access="read_write", token=credentials)
 
     yield bucket, fs
 
