@@ -15,9 +15,8 @@ from dask.layers import DataFrameIOLayer
 from google.api_core import client_info as rest_client_info
 from google.api_core.gapic_v1 import client_info as grpc_client_info
 from google.auth import default as google_auth_default
-from google.auth.credentials import Credentials
+from google.auth.credentials import Credentials, Scoped
 from google.cloud import bigquery, bigquery_storage
-from google.oauth2 import service_account
 
 import dask_bigquery
 
@@ -64,7 +63,7 @@ def gcs_fs(project_id, credentials=None):
         project_id = project_id or default_project_id
 
     # if it's a service account, update scope
-    if isinstance(credentials, service_account.Credentials):
+    if isinstance(credentials, Scoped) and credentials.requires_scopes:
         credentials = credentials.with_scopes(
             ["https://www.googleapis.com/auth/devstorage.read_write"]
         )

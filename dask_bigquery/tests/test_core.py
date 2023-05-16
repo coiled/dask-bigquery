@@ -16,8 +16,8 @@ from distributed.utils_test import cluster_fixture  # noqa: F401
 from distributed.utils_test import loop  # noqa: F401
 from distributed.utils_test import loop_in_thread  # noqa: F401
 from google.api_core.exceptions import InvalidArgument
+from google.auth.credentials import Scoped
 from google.cloud import bigquery
-from google.oauth2 import service_account
 
 from dask_bigquery import read_gbq, to_gbq
 
@@ -122,7 +122,7 @@ def bucket():
     bucket = f"dask-bigquery-tmp-{uuid.uuid4().hex}"
 
     # if it's a service account, update scope
-    if isinstance(credentials, service_account.Credentials):
+    if isinstance(credentials, Scoped) and credentials.requires_scopes:
         credentials = credentials.with_scopes(
             ["https://www.googleapis.com/auth/devstorage.read_write"]
         )
