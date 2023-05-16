@@ -113,14 +113,14 @@ def required_partition_filter_table(dataset, df):
 
 @pytest.fixture
 def bucket():
-    credentials, project_id = google.auth.default()
+    _, project_id = google.auth.default()
     env_project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
     if env_project_id:
         project_id = env_project_id
 
     bucket = f"dask-bigquery-tmp-{uuid.uuid4().hex}"
 
-    fs = gcsfs.GCSFileSystem(project=project_id, access="read_write", token=credentials)
+    fs = gcsfs.GCSFileSystem(project=project_id, access="read_write")
 
     yield bucket, fs
 

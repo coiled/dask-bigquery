@@ -14,7 +14,6 @@ from dask.highlevelgraph import HighLevelGraph
 from dask.layers import DataFrameIOLayer
 from google.api_core import client_info as rest_client_info
 from google.api_core.gapic_v1 import client_info as grpc_client_info
-from google.auth import default as google_auth_default
 from google.auth.credentials import Credentials
 from google.cloud import bigquery, bigquery_storage
 
@@ -58,9 +57,6 @@ def bigquery_client(project_id, credentials=None):
 
 def gcs_fs(project_id, credentials=None):
     """Create the GCSFS client"""
-    if credentials is None:
-        credentials, default_project_id = google_auth_default()
-        project_id = project_id or default_project_id
     return gcsfs.GCSFileSystem(
         project=project_id, access="read_write", token=credentials
     )
