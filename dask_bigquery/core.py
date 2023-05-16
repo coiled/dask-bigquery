@@ -251,9 +251,10 @@ def to_gbq(
       permissions (storage.objects.create, storage.buckets.create). If a persistent bucket is used,
       it is recommended to configure a retention policy that ensures the data is cleaned up in
       case of job failures.
-    credentials : google.auth.credentials.Credentials, optional
+    credentials : google.auth.credentials.Credentials | dict | str, optional
       Credentials for accessing Google APIs. Use this parameter to override
-      default credentials.
+      default credentials. gcsfs will accept the following values as credentials:
+      https://gcsfs.readthedocs.io/en/latest/index.html#credentials
     delete_bucket: bool, default: False
       Delete bucket in GCS after loading intermediary data to Big Query. The bucket will only be deleted if it
       didn't exist before.
