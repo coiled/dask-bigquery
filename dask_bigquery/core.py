@@ -17,6 +17,7 @@ from google.api_core.gapic_v1 import client_info as grpc_client_info
 from google.auth import default as google_auth_default
 from google.auth.credentials import Credentials, Scoped
 from google.cloud import bigquery, bigquery_storage
+from google.oauth2 import service_account
 
 import dask_bigquery
 
@@ -50,6 +51,14 @@ def bigquery_client(project_id, credentials=None):
     client_info = rest_client_info.ClientInfo(
         user_agent=f"dask-bigquery/{dask_bigquery.__version__}"
     )
+
+    # we allow to pass in a dict in to_gbq, but the Google library client needs
+    # an instance of google.auth.credentials.Credentials
+    if isinstance(credentials, dict):
+        credentials = service_account.Credentials.from_service_account_info(
+            info=credentials
+        )
+
     with bigquery.Client(
         project_id, credentials=credentials, client_info=client_info
     ) as client:
@@ -251,10 +260,9 @@ def to_gbq(
       permissions (storage.objects.create, storage.buckets.create). If a persistent bucket is used,
       it is recommended to configure a retention policy that ensures the data is cleaned up in
       case of job failures.
-    credentials : google.auth.credentials.Credentials | dict | str, optional
+    credentials : google.auth.credentials.Credentials | dict, optional
       Credentials for accessing Google APIs. Use this parameter to override
-      default credentials. gcsfs will accept the following values as credentials:
-      https://gcsfs.readthedocs.io/en/latest/index.html#credentials
+      default credentials. If a dict is provided, it should be service account info.
     delete_bucket: bool, default: False
       Delete bucket in GCS after loading intermediary data to Big Query. The bucket will only be deleted if it
       didn't exist before.
