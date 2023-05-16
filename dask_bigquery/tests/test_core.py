@@ -50,10 +50,7 @@ def dataset():
 
         yield dataset
 
-        bq_client.delete_dataset(
-            dataset=f"{project_id}.{dataset_id}",
-            delete_contents=True,
-        )
+        bq_client.delete_dataset(dataset=dataset, delete_contents=True)
 
 
 @pytest.fixture(scope="module")
@@ -79,7 +76,7 @@ def table(dataset, df):
         )  # Make an API request.
         job.result()
 
-    yield (project_id, dataset_id, table_id)
+    yield project_id, dataset_id, table_id
 
 
 @pytest.fixture(scope="module")
@@ -109,7 +106,7 @@ def required_partition_filter_table(dataset, df):
         table.require_partition_filter = True
         bq_client.update_table(table, ["require_partition_filter"])
 
-    yield (project_id, dataset_id, table_id)
+    yield project_id, dataset_id, table_id
 
 
 @pytest.fixture

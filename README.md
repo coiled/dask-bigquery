@@ -93,13 +93,16 @@ res = dask_bigquery.to_gbq(
 With explicit credentials:
 
 ```python
+import dask
+import dask_bigquery
 from google.oauth2.service_account import Credentials
 
-# credentials
-creds_dict = {"type": ..., "project_id": ..., "private_key_id": ...}
-credentials = Credentials.from_service_account_info(info=creds_dict)
+ddf = dask.datasets.timeseries(freq="1min")
 
-res = to_gbq(
+# credentials
+credentials = Credentials.from_service_account_file("/home/<username>/google.json")
+
+res = dask_bigquery.to_gbq(
     ddf,
     project_id="my_project_id",
     dataset_id="my_dataset_id",
