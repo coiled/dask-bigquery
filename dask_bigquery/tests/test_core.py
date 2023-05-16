@@ -17,6 +17,7 @@ from distributed.utils_test import loop  # noqa: F401
 from distributed.utils_test import loop_in_thread  # noqa: F401
 from google.api_core.exceptions import InvalidArgument
 from google.cloud import bigquery
+from google.oauth2 import service_account
 
 from dask_bigquery import read_gbq, to_gbq
 
@@ -113,14 +114,20 @@ def required_partition_filter_table(dataset, df):
 
 @pytest.fixture
 def bucket():
-    _, project_id = google.auth.default()
+    credentials, project_id = google.auth.default()
     env_project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
     if env_project_id:
         project_id = env_project_id
 
     bucket = f"dask-bigquery-tmp-{uuid.uuid4().hex}"
 
-    fs = gcsfs.GCSFileSystem(project=project_id, access="read_write")
+    # if it's a service account, update scope
+    if isinstance(credentials, service_account.Credentials):
+        credentials = credentials.with_scopes(
+            ["https://www.googleapis.com/auth/devstorage.read_write"]
+        )
+
+    fs = gcsfs.GCSFileSystem(project=project_id, access="read_write", token=credentials)
 
     yield bucket, fs
 
