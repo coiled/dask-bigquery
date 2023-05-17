@@ -74,7 +74,7 @@ ddf.head()
 
 ## Example: write to BigQuery
 
-With default credentials:
+Assuming that client and workers are already provisioned with default credentials:
 
 ```python
 import dask
@@ -87,27 +87,6 @@ res = dask_bigquery.to_gbq(
     project_id="my_project_id",
     dataset_id="my_dataset_id",
     table_id="my_table_name",
-)
-```
-
-With explicit credentials:
-
-```python
-import dask
-import dask_bigquery
-from google.oauth2.service_account import Credentials
-
-ddf = dask.datasets.timeseries(freq="1min")
-
-# credentials
-credentials = Credentials.from_service_account_file("/home/<username>/google.json")
-
-res = dask_bigquery.to_gbq(
-    ddf,
-    project_id="my_project_id",
-    dataset_id="my_dataset_id",
-    table_id="my_table_name",
-    credentials=credentials,
 )
 ```
 
