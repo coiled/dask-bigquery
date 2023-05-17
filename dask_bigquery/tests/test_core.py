@@ -1,5 +1,6 @@
 import os
 import random
+import sys
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -329,6 +330,7 @@ def test_arrow_options(table):
     assert ddf.dtypes["name"] == pd.StringDtype(storage="pyarrow")
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="Segfaults on macOS")
 def test_read_required_partition_filter(df, required_partition_filter_table):
     project_id, dataset_id, table_id = required_partition_filter_table
 
