@@ -42,7 +42,7 @@ def dataset():
     project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
     if not project_id:
         credentials, project_id = google.auth.default()
-    dataset_id = uuid.uuid4().hex
+    dataset_id = f"{sys.platform}-uuid.uuid4().hex"
 
     with bigquery.Client() as bq_client:
         dataset = bigquery.Dataset(f"{project_id}.{dataset_id}")
@@ -138,7 +138,7 @@ def write_dataset():
     if env_project_id:
         project_id = env_project_id
 
-    dataset_id = uuid.uuid4().hex
+    dataset_id = f"{sys.platform}-uuid.uuid4().hex"
 
     yield credentials, project_id, dataset_id
 
