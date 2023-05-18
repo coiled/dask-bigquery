@@ -18,7 +18,6 @@ from distributed.utils_test import cluster_fixture  # noqa: F401
 from distributed.utils_test import loop  # noqa: F401
 from distributed.utils_test import loop_in_thread  # noqa: F401
 from google.api_core.exceptions import InvalidArgument
-from google.auth.credentials import Scoped
 from google.cloud import bigquery
 
 from dask_bigquery import read_gbq, to_gbq
@@ -122,21 +121,17 @@ def google_creds():
 
 
 @pytest.fixture
-def bucket():
-    credentials, project_id = google.auth.default()
+def bucket(google_creds):
+    project_id = google_creds["project_id"]
     env_project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
     if env_project_id:
         project_id = env_project_id
 
     bucket = f"dask-bigquery-tmp-{uuid.uuid4().hex}"
 
-    # if it's a service account, update scope
-    if isinstance(credentials, Scoped) and credentials.requires_scopes:
-        credentials = credentials.with_scopes(
-            ["https://www.googleapis.com/auth/devstorage.read_write"]
-        )
-
-    fs = gcsfs.GCSFileSystem(project=project_id, access="read_write", token=credentials)
+    fs = gcsfs.GCSFileSystem(
+        project=project_id, access="read_write", token=google_creds
+    )
 
     yield bucket, fs
 
