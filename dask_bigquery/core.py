@@ -15,7 +15,7 @@ from dask.layers import DataFrameIOLayer
 from google.api_core import client_info as rest_client_info
 from google.api_core.gapic_v1 import client_info as grpc_client_info
 from google.auth import default as google_auth_default
-from google.auth.credentials import Credentials, Scoped
+from google.auth.credentials import Scoped
 from google.cloud import bigquery, bigquery_storage
 from google.oauth2 import service_account
 
@@ -236,7 +236,7 @@ def to_gbq(
     dataset_id: str,
     table_id: str,
     bucket: str = None,
-    credentials: Credentials = None,
+    credentials: dict = None,
     delete_bucket: bool = False,
     parquet_kwargs: dict = None,
     load_job_kwargs: dict = None,
@@ -260,9 +260,9 @@ def to_gbq(
       permissions (storage.objects.create, storage.buckets.create). If a persistent bucket is used,
       it is recommended to configure a retention policy that ensures the data is cleaned up in
       case of job failures.
-    credentials : google.auth.credentials.Credentials | dict, optional
+    credentials : dict, optional
       Credentials for accessing Google APIs. Use this parameter to override
-      default credentials. If a dict is provided, it should be service account info.
+      default credentials. The dict should contain service account credentials in JSON format.
     delete_bucket: bool, default: False
       Delete bucket in GCS after loading intermediary data to Big Query. The bucket will only be deleted if it
       didn't exist before.
@@ -320,6 +320,10 @@ def to_gbq(
     parquet_kwargs_used["engine"] = "pyarrow"
     parquet_kwargs_used["write_metadata_file"] = False
     parquet_kwargs_used.pop("path", None)
+    if credentials is not None:
+        if "storage_options" not in parquet_kwargs_used:
+            parquet_kwargs_used["storage_options"] = {}
+        parquet_kwargs_used["storage_options"]["token"] = credentials
 
     try:
         df.to_parquet(path, **parquet_kwargs_used)
