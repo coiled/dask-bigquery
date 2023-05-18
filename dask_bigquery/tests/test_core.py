@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import sys
@@ -111,6 +112,16 @@ def required_partition_filter_table(dataset, df):
 
 
 @pytest.fixture
+def google_creds():
+    env_creds_file = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    if env_creds_file:
+        credentials = json.load(open(env_creds_file))
+    else:
+        credentials = json.loads(os.environ.get("DASK_BIGQUERY_GCP_CREDENTIALS"))
+    yield credentials
+
+
+@pytest.fixture
 def bucket():
     credentials, project_id = google.auth.default()
     env_project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
@@ -134,15 +145,15 @@ def bucket():
 
 
 @pytest.fixture
-def write_dataset():
-    credentials, project_id = google.auth.default()
+def write_dataset(google_creds):
+    project_id = google_creds["project_id"]
     env_project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
     if env_project_id:
         project_id = env_project_id
 
     dataset_id = uuid.uuid4().hex
 
-    yield credentials, project_id, dataset_id
+    yield google_creds, project_id, dataset_id
 
     with bigquery.Client() as bq_client:
         bq_client.delete_dataset(

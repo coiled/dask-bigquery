@@ -14,8 +14,6 @@ from dask.highlevelgraph import HighLevelGraph
 from dask.layers import DataFrameIOLayer
 from google.api_core import client_info as rest_client_info
 from google.api_core.gapic_v1 import client_info as grpc_client_info
-from google.auth import default as google_auth_default
-from google.auth.credentials import Scoped
 from google.cloud import bigquery, bigquery_storage
 from google.oauth2 import service_account
 
@@ -46,7 +44,7 @@ def bigquery_clients(project_id):
 
 
 @contextmanager
-def bigquery_client(project_id, credentials=None):
+def bigquery_client(project_id, credentials: dict = None):
     """Create the BigQuery Client"""
     client_info = rest_client_info.ClientInfo(
         user_agent=f"dask-bigquery/{dask_bigquery.__version__}"
@@ -65,18 +63,8 @@ def bigquery_client(project_id, credentials=None):
         yield client
 
 
-def gcs_fs(project_id, credentials=None):
+def gcs_fs(project_id, credentials: dict = None):
     """Create the GCSFS client"""
-    if credentials is None:
-        credentials, default_project_id = google_auth_default()
-        project_id = project_id or default_project_id
-
-    # if it's a service account, update scope
-    if isinstance(credentials, Scoped) and credentials.requires_scopes:
-        credentials = credentials.with_scopes(
-            ["https://www.googleapis.com/auth/devstorage.read_write"]
-        )
-
     return gcsfs.GCSFileSystem(
         project=project_id, access="read_write", token=credentials
     )
@@ -279,9 +267,9 @@ def to_gbq(
     -------
         LoadJobResult
     """
-    if project_id is None and hasattr(credentials, "project_id"):
+    if project_id is None and credentials:
         # service account credentials have a project associated with them
-        project_id = credentials.project_id
+        project_id = credentials.get("project_id")
 
     load_job_kwargs_used = {"write_disposition": "WRITE_EMPTY"}
     if load_job_kwargs:
