@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import sys
@@ -50,10 +51,7 @@ def dataset():
 
         yield dataset
 
-        bq_client.delete_dataset(
-            dataset=f"{project_id}.{dataset_id}",
-            delete_contents=True,
-        )
+        bq_client.delete_dataset(dataset=dataset, delete_contents=True)
 
 
 @pytest.fixture(scope="module")
@@ -79,7 +77,7 @@ def table(dataset, df):
         )  # Make an API request.
         job.result()
 
-    yield (project_id, dataset_id, table_id)
+    yield project_id, dataset_id, table_id
 
 
 @pytest.fixture(scope="module")
@@ -109,12 +107,22 @@ def required_partition_filter_table(dataset, df):
         table.require_partition_filter = True
         bq_client.update_table(table, ["require_partition_filter"])
 
-    yield (project_id, dataset_id, table_id)
+    yield project_id, dataset_id, table_id
 
 
 @pytest.fixture
-def bucket():
-    credentials, project_id = google.auth.default()
+def google_creds():
+    env_creds_file = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    if env_creds_file:
+        credentials = json.load(open(env_creds_file))
+    else:
+        credentials = json.loads(os.environ.get("DASK_BIGQUERY_GCP_CREDENTIALS"))
+    yield credentials
+
+
+@pytest.fixture
+def bucket(google_creds):
+    project_id = google_creds["project_id"]
     env_project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
     if env_project_id:
         project_id = env_project_id
@@ -122,7 +130,7 @@ def bucket():
     bucket = f"dask-bigquery-tmp-{uuid.uuid4().hex}"
 
     fs = gcsfs.GCSFileSystem(
-        project=project_id, access="read_write", token=credentials.token
+        project=project_id, access="read_write", token=google_creds
     )
 
     yield bucket, fs
@@ -132,15 +140,15 @@ def bucket():
 
 
 @pytest.fixture
-def write_dataset():
-    credentials, project_id = google.auth.default()
+def write_dataset(google_creds):
+    project_id = google_creds["project_id"]
     env_project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
     if env_project_id:
         project_id = env_project_id
 
     dataset_id = f"{sys.platform}_{uuid.uuid4().hex}"
 
-    yield credentials, project_id, dataset_id
+    yield google_creds, project_id, dataset_id
 
     with bigquery.Client() as bq_client:
         bq_client.delete_dataset(

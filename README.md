@@ -74,7 +74,9 @@ ddf.head()
 
 ## Example: write to BigQuery
 
-With default credentials:
+### Write to BigQuery with default credentials
+
+Assuming that client and workers are already provisioned with default credentials:
 
 ```python
 import dask
@@ -90,14 +92,13 @@ res = dask_bigquery.to_gbq(
 )
 ```
 
-With explicit credentials:
+Before loading data into BigQuery, `to_gbq` writes intermediary Parquet to a Google Storage bucket. Default bucket name is `<your_project_id>-dask-bigquery`. You can provide a diferent bucket name by setting the parameter: `bucket="my-gs-bucket"`. After the job is done, the intermediary data is deleted.
+
+### Write to BigQuery with explicit (non-default) credentials
 
 ```python
-from google.oauth2.service_account import Credentials
-
-# credentials
+# service account credentials
 creds_dict = {"type": ..., "project_id": ..., "private_key_id": ...}
-credentials = Credentials.from_service_account_info(info=creds_dict)
 
 res = to_gbq(
     ddf,
@@ -107,10 +108,6 @@ res = to_gbq(
     credentials=credentials,
 )
 ```
-
-Before loading data into BigQuery, `to_gbq` writes intermediary Parquet to a Google Storage bucket. Default bucket name is `<your_project_id>-dask-bigquery`. You can provide a diferent bucket name by setting the parameter: `bucket="my-gs-bucket"`. After the job is done, the intermediary data is deleted.
-
-If you're using a persistent bucket, we recommend configuring a retention policy that ensures the data is cleaned up even in case of job failures.
 
 ## Run tests locally
 

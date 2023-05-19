@@ -14,9 +14,8 @@ from dask.highlevelgraph import HighLevelGraph
 from dask.layers import DataFrameIOLayer
 from google.api_core import client_info as rest_client_info
 from google.api_core.gapic_v1 import client_info as grpc_client_info
-from google.auth import default as google_auth_default
-from google.auth.credentials import Credentials
 from google.cloud import bigquery, bigquery_storage
+from google.oauth2 import service_account
 
 import dask_bigquery
 
@@ -45,24 +44,29 @@ def bigquery_clients(project_id):
 
 
 @contextmanager
-def bigquery_client(project_id, credentials=None):
+def bigquery_client(project_id, credentials: dict = None):
     """Create the BigQuery Client"""
     client_info = rest_client_info.ClientInfo(
         user_agent=f"dask-bigquery/{dask_bigquery.__version__}"
     )
+
+    # we allow to pass in a dict in to_gbq, but the Google library client needs
+    # an instance of google.auth.credentials.Credentials
+    if isinstance(credentials, dict):
+        credentials = service_account.Credentials.from_service_account_info(
+            info=credentials
+        )
+
     with bigquery.Client(
         project_id, credentials=credentials, client_info=client_info
     ) as client:
         yield client
 
 
-def gcs_fs(project_id, credentials=None):
+def gcs_fs(project_id, credentials: dict = None):
     """Create the GCSFS client"""
-    if credentials is None:
-        credentials, default_project_id = google_auth_default()
-        project_id = project_id or default_project_id
     return gcsfs.GCSFileSystem(
-        project=project_id, access="read_write", token=credentials.token
+        project=project_id, access="read_write", token=credentials
     )
 
 
@@ -220,7 +224,7 @@ def to_gbq(
     dataset_id: str,
     table_id: str,
     bucket: str = None,
-    credentials: Credentials = None,
+    credentials: dict = None,
     delete_bucket: bool = False,
     parquet_kwargs: dict = None,
     load_job_kwargs: dict = None,
@@ -244,9 +248,9 @@ def to_gbq(
       permissions (storage.objects.create, storage.buckets.create). If a persistent bucket is used,
       it is recommended to configure a retention policy that ensures the data is cleaned up in
       case of job failures.
-    credentials : google.auth.credentials.Credentials, optional
+    credentials : dict, optional
       Credentials for accessing Google APIs. Use this parameter to override
-      default credentials.
+      default credentials. The dict should contain service account credentials in JSON format.
     delete_bucket: bool, default: False
       Delete bucket in GCS after loading intermediary data to Big Query. The bucket will only be deleted if it
       didn't exist before.
@@ -263,9 +267,9 @@ def to_gbq(
     -------
         LoadJobResult
     """
-    if project_id is None and hasattr(credentials, "project_id"):
+    if project_id is None and credentials:
         # service account credentials have a project associated with them
-        project_id = credentials.project_id
+        project_id = credentials.get("project_id")
 
     load_job_kwargs_used = {"write_disposition": "WRITE_EMPTY"}
     if load_job_kwargs:
@@ -304,6 +308,10 @@ def to_gbq(
     parquet_kwargs_used["engine"] = "pyarrow"
     parquet_kwargs_used["write_metadata_file"] = False
     parquet_kwargs_used.pop("path", None)
+    if credentials is not None:
+        if "storage_options" not in parquet_kwargs_used:
+            parquet_kwargs_used["storage_options"] = {}
+        parquet_kwargs_used["storage_options"]["token"] = credentials
 
     try:
         df.to_parquet(path, **parquet_kwargs_used)
