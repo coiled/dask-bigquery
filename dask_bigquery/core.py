@@ -14,7 +14,7 @@ from dask.highlevelgraph import HighLevelGraph
 from dask.layers import DataFrameIOLayer
 from google.api_core import client_info as rest_client_info
 from google.api_core.gapic_v1 import client_info as grpc_client_info
-from google.cloud import bigquery, bigquery_storage
+from google.cloud import bigquery, bigquery_storage, exceptions
 from google.oauth2 import service_account
 
 import dask_bigquery
@@ -317,7 +317,12 @@ def to_gbq(
         df.to_parquet(path, **parquet_kwargs_used)
 
         with bigquery_client(project_id, credentials=credentials) as client:
-            target_dataset = client.create_dataset(dataset_id, exists_ok=True)
+            # first try getting the dataset, in case user has read but not create
+            # permissions. If it doesn't exist, we must create.
+            try:
+                target_dataset = client.get_dataset(dataset_id)
+            except exceptions.NotFound:
+                target_dataset = client.create_dataset(dataset_id)
             target_table = target_dataset.table(table_id)
 
             job_config = bigquery.LoadJobConfig(
