@@ -157,6 +157,13 @@ def write_dataset(google_creds):
         )
 
 
+@pytest.fixture
+def write_existing_dataset(google_creds):
+    yield google_creds, os.environ.get(
+        "DASK_BIGQUERY_PROJECT_ID", google_creds["project_id"]
+    ), "persistent_dataset"
+
+
 @pytest.mark.parametrize(
     "parquet_kwargs,load_job_kwargs",
     [
@@ -194,8 +201,9 @@ def write_dataset(google_creds):
         ),
     ],
 )
-def test_to_gbq(df, write_dataset, parquet_kwargs, load_job_kwargs):
-    _, project_id, dataset_id = write_dataset
+@pytest.mark.parametrize("dataset", [(write_dataset, write_existing_dataset)])
+def test_to_gbq(df, dataset, parquet_kwargs, load_job_kwargs):
+    _, project_id, dataset_id = dataset
     ddf = dd.from_pandas(df, npartitions=2)
 
     result = to_gbq(
