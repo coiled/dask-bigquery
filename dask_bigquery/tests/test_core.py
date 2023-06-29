@@ -165,11 +165,10 @@ def write_existing_dataset(google_creds):
 
 
 @pytest.mark.parametrize(
-    "dataset,parquet_kwargs,load_job_kwargs",
+    "parquet_kwargs,load_job_kwargs",
     [
-        (write_dataset, None, None),
+        (None, None),
         (
-            write_dataset,
             {
                 "schema": pa.schema(
                     [
@@ -191,57 +190,10 @@ def write_existing_dataset(google_creds):
                 "autodetect": False,
             },
         ),
-        (write_dataset, {"write_index": True}, None),  # non-default
+        ({"write_index": True}, None),  # non-default
+        ({"engine": "fastparquet"}, None),  # non-default, should enforce "pyarrow"
+        (None, {"write_disposition": "WRITE_APPEND"}),  # non-default
         (
-            write_dataset,
-            {"engine": "fastparquet"},
-            None,
-        ),  # non-default, should enforce "pyarrow"
-        (write_dataset, None, {"write_disposition": "WRITE_APPEND"}),  # non-default
-        (
-            write_dataset,
-            None,
-            {
-                "source_format": bigquery.SourceFormat.AVRO
-            },  # non-default, should enforce PARQUET
-        ),
-        (write_existing_dataset, None, None),
-        (
-            write_existing_dataset,
-            {
-                "schema": pa.schema(
-                    [
-                        ("name", pa.string()),
-                        ("number", pa.uint8()),
-                        ("timestamp", pa.timestamp("ns")),
-                        ("idx", pa.uint8()),
-                    ]
-                ),
-                "write_index": False,
-            },
-            {
-                "schema": [
-                    bigquery.SchemaField("name", "STRING"),
-                    bigquery.SchemaField("number", "INTEGER"),
-                    bigquery.SchemaField("timestamp", "TIMESTAMP"),
-                    bigquery.SchemaField("idx", "INTEGER"),
-                ],
-                "autodetect": False,
-            },
-        ),
-        (write_existing_dataset, {"write_index": True}, None),  # non-default
-        (
-            write_existing_dataset,
-            {"engine": "fastparquet"},
-            None,
-        ),  # non-default, should enforce "pyarrow"
-        (
-            write_existing_dataset,
-            None,
-            {"write_disposition": "WRITE_APPEND"},
-        ),  # non-default
-        (
-            write_existing_dataset,
             None,
             {
                 "source_format": bigquery.SourceFormat.AVRO
@@ -249,6 +201,7 @@ def write_existing_dataset(google_creds):
         ),
     ],
 )
+@pytest.mark.parametrize("dataset", [write_dataset, write_existing_dataset])
 def test_to_gbq(df, dataset, parquet_kwargs, load_job_kwargs):
     _, project_id, dataset_id = dataset
     ddf = dd.from_pandas(df, npartitions=2)
