@@ -201,8 +201,9 @@ def write_existing_dataset(google_creds):
         ),
     ],
 )
-@pytest.mark.parametrize("dataset", [write_dataset, write_existing_dataset])
-def test_to_gbq(df, dataset, parquet_kwargs, load_job_kwargs):
+@pytest.mark.parametrize("dataset_fixture", ["write_dataset", "write_existing_dataset"])
+def test_to_gbq(df, dataset_fixture, request, parquet_kwargs, load_job_kwargs):
+    dataset = request.getfixturevalue(dataset_fixture)
     _, project_id, dataset_id = dataset
     ddf = dd.from_pandas(df, npartitions=2)
 
@@ -218,8 +219,10 @@ def test_to_gbq(df, dataset, parquet_kwargs, load_job_kwargs):
 
 
 @pytest.mark.parametrize("delete_bucket", [False, True])
-def test_to_gbq_cleanup(df, write_dataset, bucket, delete_bucket):
-    _, project_id, dataset_id = write_dataset
+@pytest.mark.parametrize("dataset_fixture", ["write_dataset", "write_existing_dataset"])
+def test_to_gbq_cleanup(df, dataset_fixture, request, bucket, delete_bucket):
+    dataset = request.getfixturevalue(dataset_fixture)
+    _, project_id, dataset_id = dataset
     bucket, fs = bucket
 
     ddf = dd.from_pandas(df, npartitions=2)
@@ -241,8 +244,10 @@ def test_to_gbq_cleanup(df, write_dataset, bucket, delete_bucket):
         assert len(fs.ls(bucket, detail=False)) == 0
 
 
-def test_to_gbq_with_credentials(df, write_dataset, monkeypatch):
-    credentials, project_id, dataset_id = write_dataset
+@pytest.mark.parametrize("dataset_fixture", ["write_dataset", "write_existing_dataset"])
+def test_to_gbq_with_credentials(df, dataset_fixture, request, monkeypatch):
+    dataset = request.getfixturevalue(dataset_fixture)
+    credentials, project_id, dataset_id = dataset
     ddf = dd.from_pandas(df, npartitions=2)
 
     monkeypatch.delenv("GOOGLE_DEFAULT_CREDENTIALS", raising=False)
@@ -257,8 +262,10 @@ def test_to_gbq_with_credentials(df, write_dataset, monkeypatch):
     assert result.state == "DONE"
 
 
-def test_roundtrip(df, write_dataset):
-    _, project_id, dataset_id = write_dataset
+@pytest.mark.parametrize("dataset_fixture", ["write_dataset", "write_existing_dataset"])
+def test_roundtrip(df, dataset_fixture, request):
+    dataset = request.getfixturevalue(dataset_fixture)
+    _, project_id, dataset_id = dataset
     ddf = dd.from_pandas(df, npartitions=2)
     table_id = "roundtrip_table"
 
