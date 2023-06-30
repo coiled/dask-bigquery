@@ -159,9 +159,21 @@ def write_dataset(google_creds):
 
 @pytest.fixture
 def write_existing_dataset(google_creds):
-    yield google_creds, os.environ.get(
-        "DASK_BIGQUERY_PROJECT_ID", google_creds["project_id"]
-    ), "persistent_dataset"
+    project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID", google_creds["project_id"])
+    dataset_id = "persistent_dataset"
+
+    with bigquery.Client() as bq_client:
+        bq_client.delete_table(
+            f"{project_id}.{dataset_id}.table_to_write",
+            not_found_ok=True,
+        )
+
+    yield google_creds, project_id, dataset_id
+
+    with bigquery.Client() as bq_client:
+        bq_client.delete_table(
+            f"{project_id}.{dataset_id}.table_to_write",
+        )
 
 
 @pytest.mark.parametrize(
