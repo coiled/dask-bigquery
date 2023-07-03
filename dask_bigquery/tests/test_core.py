@@ -148,7 +148,7 @@ def write_dataset(google_creds):
 
     dataset_id = f"{sys.platform}_{uuid.uuid4().hex}"
 
-    yield google_creds, project_id, dataset_id
+    yield google_creds, project_id, dataset_id, None
 
     with bigquery.Client() as bq_client:
         bq_client.delete_dataset(
@@ -161,18 +161,13 @@ def write_dataset(google_creds):
 def write_existing_dataset(google_creds):
     project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID", google_creds["project_id"])
     dataset_id = "persistent_dataset"
+    table_id = f"table_to_write_{sys.platform}_{uuid.uuid4().hex}"
+
+    yield google_creds, project_id, dataset_id, table_id
 
     with bigquery.Client() as bq_client:
         bq_client.delete_table(
-            f"{project_id}.{dataset_id}.table_to_write",
-            not_found_ok=True,
-        )
-
-    yield google_creds, project_id, dataset_id
-
-    with bigquery.Client() as bq_client:
-        bq_client.delete_table(
-            f"{project_id}.{dataset_id}.table_to_write",
+            f"{project_id}.{dataset_id}.{table_id}",
         )
 
 
@@ -216,14 +211,15 @@ def write_existing_dataset(google_creds):
 @pytest.mark.parametrize("dataset_fixture", ["write_dataset", "write_existing_dataset"])
 def test_to_gbq(df, dataset_fixture, request, parquet_kwargs, load_job_kwargs):
     dataset = request.getfixturevalue(dataset_fixture)
-    _, project_id, dataset_id = dataset
+
+    _, project_id, dataset_id, table_id = dataset
     ddf = dd.from_pandas(df, npartitions=2)
 
     result = to_gbq(
         ddf,
         project_id=project_id,
         dataset_id=dataset_id,
-        table_id="table_to_write",
+        table_id=table_id or "table_to_write",
         parquet_kwargs=parquet_kwargs,
         load_job_kwargs=load_job_kwargs,
     )
@@ -234,7 +230,7 @@ def test_to_gbq(df, dataset_fixture, request, parquet_kwargs, load_job_kwargs):
 @pytest.mark.parametrize("dataset_fixture", ["write_dataset", "write_existing_dataset"])
 def test_to_gbq_cleanup(df, dataset_fixture, request, bucket, delete_bucket):
     dataset = request.getfixturevalue(dataset_fixture)
-    _, project_id, dataset_id = dataset
+    _, project_id, dataset_id, table_id = dataset
     bucket, fs = bucket
 
     ddf = dd.from_pandas(df, npartitions=2)
@@ -243,7 +239,7 @@ def test_to_gbq_cleanup(df, dataset_fixture, request, bucket, delete_bucket):
         ddf,
         project_id=project_id,
         dataset_id=dataset_id,
-        table_id="table_to_write",
+        table_id=table_id or "table_to_write",
         bucket=bucket,
         delete_bucket=delete_bucket,
     )
@@ -259,7 +255,7 @@ def test_to_gbq_cleanup(df, dataset_fixture, request, bucket, delete_bucket):
 @pytest.mark.parametrize("dataset_fixture", ["write_dataset", "write_existing_dataset"])
 def test_to_gbq_with_credentials(df, dataset_fixture, request, monkeypatch):
     dataset = request.getfixturevalue(dataset_fixture)
-    credentials, project_id, dataset_id = dataset
+    credentials, project_id, dataset_id, table_id = dataset
     ddf = dd.from_pandas(df, npartitions=2)
 
     monkeypatch.delenv("GOOGLE_DEFAULT_CREDENTIALS", raising=False)
@@ -268,7 +264,7 @@ def test_to_gbq_with_credentials(df, dataset_fixture, request, monkeypatch):
         ddf,
         project_id=project_id,
         dataset_id=dataset_id,
-        table_id="table_to_write",
+        table_id=table_id or "table_to_write",
         credentials=credentials,
     )
     assert result.state == "DONE"
@@ -277,9 +273,10 @@ def test_to_gbq_with_credentials(df, dataset_fixture, request, monkeypatch):
 @pytest.mark.parametrize("dataset_fixture", ["write_dataset", "write_existing_dataset"])
 def test_roundtrip(df, dataset_fixture, request):
     dataset = request.getfixturevalue(dataset_fixture)
-    _, project_id, dataset_id = dataset
+    _, project_id, dataset_id, table_id = dataset
     ddf = dd.from_pandas(df, npartitions=2)
-    table_id = "roundtrip_table"
+    if not table_id:
+        table_id = "roundtrip_table"
 
     result = to_gbq(
         ddf, project_id=project_id, dataset_id=dataset_id, table_id=table_id

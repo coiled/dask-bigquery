@@ -13,8 +13,9 @@ from dask.dataframe.core import new_dd_object
 from dask.highlevelgraph import HighLevelGraph
 from dask.layers import DataFrameIOLayer
 from google.api_core import client_info as rest_client_info
+from google.api_core import exceptions
 from google.api_core.gapic_v1 import client_info as grpc_client_info
-from google.cloud import bigquery, bigquery_storage, exceptions
+from google.cloud import bigquery, bigquery_storage
 from google.oauth2 import service_account
 
 import dask_bigquery
