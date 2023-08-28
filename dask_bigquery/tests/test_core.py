@@ -336,6 +336,34 @@ def test_read_columns(df, table, client):
     assert list(ddf.columns) == columns
 
 
+@pytest.mark.parametrize("dataset_fixture", ["write_dataset", "write_existing_dataset"])
+def test_read_gbq_credentials(df, dataset_fixture, request, monkeypatch):
+    dataset = request.getfixturevalue(dataset_fixture)
+    credentials, project_id, dataset_id, table_id = dataset
+    ddf = dd.from_pandas(df, npartitions=2)
+
+    monkeypatch.delenv("GOOGLE_DEFAULT_CREDENTIALS", raising=False)
+    # with explicit credentials
+    result = to_gbq(
+        ddf,
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id=table_id or "table_to_write",
+        credentials=credentials,
+    )
+    assert result.state == "DONE"
+
+    ddf = read_gbq(
+        project_id=project_id,
+        dataset_id=dataset_id,
+        table_id=table_id,
+        credentials=credentials,
+    )
+
+    assert list(ddf.columns) == ["name", "number", "timestamp", "idx"]
+    assert assert_eq(ddf.set_index("idx"), df.set_index("idx"))
+
+
 def test_max_streams(df, table, client):
     project_id, dataset_id, table_id = table
     ddf = read_gbq(
