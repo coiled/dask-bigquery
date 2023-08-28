@@ -353,10 +353,11 @@ def test_read_gbq_credentials(df, dataset_fixture, request, monkeypatch):
     )
     assert result.state == "DONE"
 
+    # with explicit credentials
     ddf = read_gbq(
         project_id=project_id,
         dataset_id=dataset_id,
-        table_id=table_id,
+        table_id=table_id or "table_to_write",
         credentials=credentials,
     )
 
