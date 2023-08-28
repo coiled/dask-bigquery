@@ -225,6 +225,7 @@ def read_gbq(
                 project_id=project_id,
                 read_kwargs=read_kwargs,
                 arrow_options=arrow_options,
+                credentials=credentials,
             ),
             label=label,
         )
