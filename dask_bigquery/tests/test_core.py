@@ -34,8 +34,15 @@ def df():
         }
         for i in range(10)
     ]
+    df = pd.DataFrame(records)
 
-    yield pd.DataFrame(records)
+    df["timestamp"] = (
+        df["timestamp"]
+        .dt.tz_convert("UTC")
+        .dt.tz_localize(None)
+        .astype("datetime64[us]")
+    )
+    yield df
 
 
 @pytest.fixture(scope="module")
