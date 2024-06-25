@@ -9,6 +9,7 @@ import gcsfs
 import pandas as pd
 import pyarrow
 from dask.base import tokenize
+import dask.dataframe as dd
 from dask.dataframe.core import new_dd_object
 from dask.highlevelgraph import HighLevelGraph
 from dask.layers import DataFrameIOLayer
@@ -206,33 +207,47 @@ def read_gbq(
         )
         meta = schema.empty_table().to_pandas(**arrow_options)
 
-        label = "read-gbq-"
-        output_name = label + tokenize(
-            project_id,
-            dataset_id,
-            table_id,
-            row_filter,
-            read_kwargs,
-        )
+        # label = "read-gbq-"
+        # output_name = label + tokenize(
+        #     project_id,
+        #     dataset_id,
+        #     table_id,
+        #     row_filter,
+        #     read_kwargs,
+        # )
 
-        layer = DataFrameIOLayer(
-            output_name,
-            meta.columns,
-            [stream.name for stream in session.streams],
+        return dd.from_map(
             partial(
                 bigquery_read,
                 make_create_read_session_request=make_create_read_session_request,
                 project_id=project_id,
-                read_kwargs=read_kwargs,
+                 read_kwargs=read_kwargs,
                 arrow_options=arrow_options,
                 credentials=credentials,
             ),
-            label=label,
-        )
-        divisions = tuple([None] * (len(session.streams) + 1))
+            [stream.name for stream in session.streams],
+            meta=meta,
+            )
 
-        graph = HighLevelGraph({output_name: layer}, {output_name: set()})
-        return new_dd_object(graph, output_name, meta, divisions)
+
+        # layer = DataFrameIOLayer(
+        #     output_name,
+        #     meta.columns,
+        #     [stream.name for stream in session.streams],
+        #     partial(
+        #         bigquery_read,
+        #         make_create_read_session_request=make_create_read_session_request,
+        #         project_id=project_id,
+        #         read_kwargs=read_kwargs,
+        #         arrow_options=arrow_options,
+        #         credentials=credentials,
+        #     ),
+        #     label=label,
+        # )
+        # divisions = tuple([None] * (len(session.streams) + 1))
+
+        # graph = HighLevelGraph({output_name: layer}, {output_name: set()})
+        # return new_dd_object(graph, output_name, meta, divisions)
 
 
 def to_gbq(
