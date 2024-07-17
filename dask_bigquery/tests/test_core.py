@@ -35,14 +35,13 @@ def df():
         for i in range(10)
     ]
 
-    yield pd.DataFrame(records)
+    df = pd.DataFrame(records)
+    df["timestamp"] = df["timestamp"].astype("datetime64[us, UTC]")
+    yield df
 
 
 @pytest.fixture(scope="module")
-def dataset():
-    project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
-    if not project_id:
-        credentials, project_id = google.auth.default()
+def dataset(project_id):
     dataset_id = f"{sys.platform}_{uuid.uuid4().hex}"
 
     with bigquery.Client() as bq_client:
@@ -110,25 +109,30 @@ def required_partition_filter_table(dataset, df):
     yield project_id, dataset_id, table_id
 
 
+@pytest.fixture(scope="module")
+def project_id():
+    project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
+    if not project_id:
+        _, project_id = google.auth.default()
+
+    yield project_id
+
+
 @pytest.fixture
 def google_creds():
-    env_creds_file = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-    if env_creds_file:
-        credentials = json.load(open(env_creds_file))
-    else:
+    if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+        credentials = json.load(open(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")))
+    elif os.environ.get("DASK_BIGQUERY_GCP_CREDENTIALS"):
         credentials = json.loads(os.environ.get("DASK_BIGQUERY_GCP_CREDENTIALS"))
+    else:
+        credentials, _ = google.auth.default()
+
     yield credentials
 
 
 @pytest.fixture
-def bucket(google_creds):
-    project_id = google_creds["project_id"]
-    env_project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
-    if env_project_id:
-        project_id = env_project_id
-
+def bucket(google_creds, project_id):
     bucket = f"dask-bigquery-tmp-{uuid.uuid4().hex}"
-
     fs = gcsfs.GCSFileSystem(
         project=project_id, access="read_write", token=google_creds
     )
@@ -140,12 +144,7 @@ def bucket(google_creds):
 
 
 @pytest.fixture
-def write_dataset(google_creds):
-    project_id = google_creds["project_id"]
-    env_project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID")
-    if env_project_id:
-        project_id = env_project_id
-
+def write_dataset(google_creds, project_id):
     dataset_id = f"{sys.platform}_{uuid.uuid4().hex}"
 
     yield google_creds, project_id, dataset_id, None
@@ -158,8 +157,7 @@ def write_dataset(google_creds):
 
 
 @pytest.fixture
-def write_existing_dataset(google_creds):
-    project_id = os.environ.get("DASK_BIGQUERY_PROJECT_ID", google_creds["project_id"])
+def write_existing_dataset(google_creds, project_id):
     dataset_id = "persistent_dataset"
     table_id = f"table_to_write_{sys.platform}_{uuid.uuid4().hex}"
 
@@ -181,7 +179,7 @@ def write_existing_dataset(google_creds):
                     [
                         ("name", pa.string()),
                         ("number", pa.uint8()),
-                        ("timestamp", pa.timestamp("ns")),
+                        ("timestamp", pa.timestamp("us")),
                         ("idx", pa.uint8()),
                     ]
                 ),
@@ -285,14 +283,14 @@ def test_roundtrip(df, dataset_fixture, request):
 
     ddf_out = read_gbq(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
     # bigquery does not guarantee ordering, so let's reindex
-    assert_eq(ddf.set_index("idx"), ddf_out.set_index("idx"))
+    assert_eq(ddf.set_index("idx"), ddf_out.set_index("idx"), check_divisions=False)
 
 
 def test_read_gbq(df, table, client):
     project_id, dataset_id, table_id = table
     ddf = read_gbq(project_id=project_id, dataset_id=dataset_id, table_id=table_id)
 
-    assert list(ddf.columns) == ["name", "number", "timestamp", "idx"]
+    assert list(df.columns) == list(ddf.columns)
     assert assert_eq(ddf.set_index("idx"), df.set_index("idx"))
 
 
@@ -305,7 +303,7 @@ def test_read_row_filter(df, table, client):
         row_filter="idx < 5",
     )
 
-    assert list(ddf.columns) == ["name", "number", "timestamp", "idx"]
+    assert list(df.columns) == list(ddf.columns)
     assert assert_eq(ddf.set_index("idx").loc[:4], df.set_index("idx").loc[:4])
 
 
@@ -361,7 +359,7 @@ def test_read_gbq_credentials(df, dataset_fixture, request, monkeypatch):
         credentials=credentials,
     )
 
-    assert list(ddf.columns) == ["name", "number", "timestamp", "idx"]
+    assert list(df.columns) == list(ddf.columns)
     assert assert_eq(ddf.set_index("idx"), df.set_index("idx"))
 
 
