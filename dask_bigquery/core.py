@@ -215,6 +215,7 @@ def read_gbq(
             ),
             [stream.name for stream in session.streams],
             meta=meta,
+            label="read-bigquery",
         )
 
 
