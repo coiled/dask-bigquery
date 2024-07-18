@@ -13,7 +13,7 @@ setup(
     packages=["dask_bigquery"],
     long_description=long_description,
     long_description_content_type="text/markdown",
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     install_requires=open("requirements.txt").read().strip().split("\n"),
     extras_require={"test": ["pytest", "distributed", "google-auth>=1.30.0"]},
     include_package_data=True,

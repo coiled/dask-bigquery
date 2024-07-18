@@ -3,8 +3,8 @@ channels:
   - conda-forge
   - nodefaults
 dependencies:
-  - python=3.8
-  - dask
+  - python=3.11
+  - dask >=2024.3.0
   - distributed
   - pandas
   - pyarrow
@@ -12,3 +12,6 @@ dependencies:
   - gcsfs
   - google-cloud-bigquery>=2.11.0
   - google-cloud-bigquery-storage
+  - pip
+  - pip:
+    - git+https://github.com/dask/dask

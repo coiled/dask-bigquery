@@ -4,7 +4,7 @@ channels:
   - nodefaults
 dependencies:
   - python=3.10
-  - dask
+  - dask >=2024.3.0
   - distributed
   - pandas
   - pyarrow
@@ -12,3 +12,6 @@ dependencies:
   - gcsfs
   - google-cloud-bigquery>=2.11.0
   - google-cloud-bigquery-storage
+  - pip
+  - pip:
+    - git+https://github.com/dask/dask
