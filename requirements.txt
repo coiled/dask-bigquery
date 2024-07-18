@@ -1,4 +1,4 @@
-dask
+dask>=2024.3.0
 gcsfs
 google-cloud-bigquery >= 2.11.0
 google-cloud-bigquery-storage
