@@ -348,7 +348,7 @@ def to_gbq(
         fs.mkdir(bucket)
 
     token = tokenize(df)
-    object_prefix = f"{dt.datetime.now(dt.UTC).isoformat()}_{token}"
+    object_prefix = f"{dt.datetime.utcnow().isoformat()}_{token}"
     path = f"gs://{bucket}/{object_prefix}"
 
     parquet_kwargs_used = {"write_index": False}
