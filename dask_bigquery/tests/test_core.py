@@ -391,7 +391,7 @@ def test_arrow_options(table):
 @pytest.mark.parametrize("convert_string", [True, False])
 def test_convert_string(table, convert_string):
     project_id, dataset_id, table_id = table
-    with dask.config.set({"dask.dataframe.convert-string": convert_string}):
+    with dask.config.set({"dataframe.convert-string": convert_string}):
         ddf = read_gbq(
             project_id=project_id,
             dataset_id=dataset_id,

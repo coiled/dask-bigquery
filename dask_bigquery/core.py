@@ -97,6 +97,7 @@ def bigquery_read(
     read_kwargs: dict,
     arrow_options: dict,
     credentials: dict = None,
+    convert_string: bool = False,
 ) -> pd.DataFrame:
     """Read a single batch of rows via BQ Storage API, in Arrow binary format.
 
@@ -116,7 +117,15 @@ def bigquery_read(
       BigQuery Storage API Stream "name"
       NOTE: Please set if reading from Storage API without any `row_restriction`.
             https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1beta1#stream
+    convert_string: bool
+        Whether to convert arrow strings directly to arrpw strings in the DataFrame
     """
+    arrow_options = arrow_options.copy()
+    if convert_string:
+        types_mapper = _get_types_mapper(arrow_options.get("types_mapper", {}.get))
+        if types_mapper is not None:
+            arrow_options["types_mapper"] = types_mapper
+
     with bigquery_clients(project_id, credentials=credentials) as (_, bqs_client):
         session = bqs_client.create_read_session(make_create_read_session_request())
         schema = pyarrow.ipc.read_schema(
@@ -229,11 +238,11 @@ def read_gbq(
                 ),
             )
 
-        arrow_options = arrow_options.copy()
+        arrow_options_meta = arrow_options.copy()
         if pyarrow_strings_enabled():
             types_mapper = _get_types_mapper(arrow_options.get("types_mapper", {}.get))
             if types_mapper is not None:
-                arrow_options["types_mapper"] = types_mapper
+                arrow_options_meta["types_mapper"] = types_mapper
 
         # Create a read session in order to detect the schema.
         # Read sessions are light weight and will be auto-deleted after 24 hours.
@@ -241,7 +250,7 @@ def read_gbq(
         schema = pyarrow.ipc.read_schema(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
         )
-        meta = schema.empty_table().to_pandas(**arrow_options)
+        meta = schema.empty_table().to_pandas(**arrow_options_meta)
         print(meta.dtypes)
 
         return dd.from_map(
@@ -252,6 +261,7 @@ def read_gbq(
                 read_kwargs=read_kwargs,
                 arrow_options=arrow_options,
                 credentials=credentials,
+                convert_string=pyarrow_strings_enabled(),
             ),
             [stream.name for stream in session.streams],
             meta=meta,
