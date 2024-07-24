@@ -251,7 +251,6 @@ def read_gbq(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
         )
         meta = schema.empty_table().to_pandas(**arrow_options_meta)
-        print(meta.dtypes)
 
         return dd.from_map(
             partial(
@@ -349,7 +348,7 @@ def to_gbq(
         fs.mkdir(bucket)
 
     token = tokenize(df)
-    object_prefix = f"{dt.datetime.utcnow().isoformat()}_{token}"
+    object_prefix = f"{dt.datetime.now(dt.UTC).isoformat()}_{token}"
     path = f"gs://{bucket}/{object_prefix}"
 
     parquet_kwargs_used = {"write_index": False}
