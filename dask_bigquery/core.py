@@ -231,7 +231,7 @@ def read_gbq(
 
         arrow_options = arrow_options.copy()
         if pyarrow_strings_enabled():
-            types_mapper = _get_types_mapper(arrow_options.get("types_mapper", {}))
+            types_mapper = _get_types_mapper(arrow_options.get("types_mapper", {}.get))
             if types_mapper is not None:
                 arrow_options["types_mapper"] = types_mapper
 
