@@ -5,6 +5,7 @@ import sys
 import uuid
 from datetime import datetime, timedelta, timezone
 
+import dask
 import dask.dataframe as dd
 import gcsfs
 import google.auth
@@ -385,6 +386,21 @@ def test_arrow_options(table):
         },
     )
     assert ddf.dtypes["name"] == pd.StringDtype(storage="pyarrow")
+
+
+@pytest.mark.parametrize("convert_string", [True, False])
+def test_convert_string(table, convert_string):
+    project_id, dataset_id, table_id = table
+    with dask.config.set({"dask.dataframe.convert-string": convert_string}):
+        ddf = read_gbq(
+            project_id=project_id,
+            dataset_id=dataset_id,
+            table_id=table_id,
+        )
+    if convert_string:
+        assert ddf.dtypes["name"] == pd.StringDtype(storage="pyarrow")
+    else:
+        assert ddf.dtypes["name"] == object
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="Segfaults on macOS")
