@@ -10,6 +10,8 @@ import gcsfs
 import pandas as pd
 import pyarrow
 from dask.base import tokenize
+from dask.dataframe._compat import PANDAS_GE_220
+from dask.dataframe.utils import pyarrow_strings_enabled
 from google.api_core import client_info as rest_client_info
 from google.api_core import exceptions
 from google.api_core.gapic_v1 import client_info as grpc_client_info
@@ -95,6 +97,7 @@ def bigquery_read(
     read_kwargs: dict,
     arrow_options: dict,
     credentials: dict = None,
+    convert_string: bool = False,
 ) -> pd.DataFrame:
     """Read a single batch of rows via BQ Storage API, in Arrow binary format.
 
@@ -114,7 +117,15 @@ def bigquery_read(
       BigQuery Storage API Stream "name"
       NOTE: Please set if reading from Storage API without any `row_restriction`.
             https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1beta1#stream
+    convert_string: bool
+        Whether to convert strings directly to arrow strings in the output DataFrame
     """
+    arrow_options = arrow_options.copy()
+    if convert_string:
+        types_mapper = _get_types_mapper(arrow_options.get("types_mapper", {}.get))
+        if types_mapper is not None:
+            arrow_options["types_mapper"] = types_mapper
+
     with bigquery_clients(project_id, credentials=credentials) as (_, bqs_client):
         session = bqs_client.create_read_session(make_create_read_session_request())
         schema = pyarrow.ipc.read_schema(
@@ -128,6 +139,37 @@ def bigquery_read(
             shards = [schema.empty_table().to_pandas(**arrow_options)]
 
     return pd.concat(shards)
+
+
+def _get_types_mapper(user_mapper):
+    type_mappers = []
+
+    # always use the user-defined mapper first, if available
+    if user_mapper is not None:
+        type_mappers.append(user_mapper)
+
+    type_mappers.append({pyarrow.string(): pd.StringDtype("pyarrow")}.get)
+    if PANDAS_GE_220:
+        type_mappers.append({pyarrow.large_string(): pd.StringDtype("pyarrow")}.get)
+    type_mappers.append({pyarrow.date32(): pd.ArrowDtype(pyarrow.date32())}.get)
+    type_mappers.append({pyarrow.date64(): pd.ArrowDtype(pyarrow.date64())}.get)
+
+    def _convert_decimal_type(type):
+        if pyarrow.types.is_decimal(type):
+            return pd.ArrowDtype(type)
+        return None
+
+    type_mappers.append(_convert_decimal_type)
+
+    def default_types_mapper(pyarrow_dtype):
+        """Try all type mappers in order, starting from the user type mapper."""
+        for type_converter in type_mappers:
+            converted_type = type_converter(pyarrow_dtype)
+            if converted_type is not None:
+                return converted_type
+
+    if len(type_mappers) > 0:
+        return default_types_mapper
 
 
 def read_gbq(
@@ -196,13 +238,19 @@ def read_gbq(
                 ),
             )
 
+        arrow_options_meta = arrow_options.copy()
+        if pyarrow_strings_enabled():
+            types_mapper = _get_types_mapper(arrow_options.get("types_mapper", {}.get))
+            if types_mapper is not None:
+                arrow_options_meta["types_mapper"] = types_mapper
+
         # Create a read session in order to detect the schema.
         # Read sessions are light weight and will be auto-deleted after 24 hours.
         session = bqs_client.create_read_session(make_create_read_session_request())
         schema = pyarrow.ipc.read_schema(
             pyarrow.py_buffer(session.arrow_schema.serialized_schema)
         )
-        meta = schema.empty_table().to_pandas(**arrow_options)
+        meta = schema.empty_table().to_pandas(**arrow_options_meta)
 
         return dd.from_map(
             partial(
@@ -212,6 +260,7 @@ def read_gbq(
                 read_kwargs=read_kwargs,
                 arrow_options=arrow_options,
                 credentials=credentials,
+                convert_string=pyarrow_strings_enabled(),
             ),
             [stream.name for stream in session.streams],
             meta=meta,
