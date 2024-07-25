@@ -118,7 +118,7 @@ def bigquery_read(
       NOTE: Please set if reading from Storage API without any `row_restriction`.
             https://cloud.google.com/bigquery/docs/reference/storage/rpc/google.cloud.bigquery.storage.v1beta1#stream
     convert_string: bool
-        Whether to convert arrow strings directly to arrpw strings in the DataFrame
+        Whether to convert strings directly to arrow strings in the output DataFrame
     """
     arrow_options = arrow_options.copy()
     if convert_string:
