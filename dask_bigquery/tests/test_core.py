@@ -12,7 +12,7 @@ import google.auth
 import pandas as pd
 import pyarrow as pa
 import pytest
-from dask.dataframe.utils import assert_eq
+from dask.dataframe.utils import assert_eq, pyarrow_strings_enabled
 from distributed.utils_test import cleanup  # noqa: F401
 from distributed.utils_test import client  # noqa: F401
 from distributed.utils_test import cluster_fixture  # noqa: F401
@@ -381,26 +381,32 @@ def test_arrow_options(table):
         project_id=project_id,
         dataset_id=dataset_id,
         table_id=table_id,
-        arrow_options={
-            "types_mapper": {pa.string(): pd.StringDtype(storage="pyarrow")}.get
-        },
+        arrow_options={"types_mapper": {pa.int64(): pd.Float32Dtype()}.get},
     )
-    assert ddf.dtypes["name"] == pd.StringDtype(storage="pyarrow")
+    assert ddf.dtypes["number"] == pd.Float32Dtype()
 
 
-@pytest.mark.parametrize("convert_string", [True, False])
-def test_convert_string(table, convert_string):
+@pytest.mark.parametrize("convert_string", [True, False, None])
+def test_convert_string(table, convert_string, df):
     project_id, dataset_id, table_id = table
-    with dask.config.set({"dataframe.convert-string": convert_string}):
+    config = {}
+    if convert_string is not None:
+        config = {"dataframe.convert-string": convert_string}
+    with dask.config.set(config):
         ddf = read_gbq(
             project_id=project_id,
             dataset_id=dataset_id,
             table_id=table_id,
         )
-    if convert_string:
+        # Roundtrip through `dd.from_pandas` to check consistent
+        # behavior with Dask DataFrame
+        result = dd.from_pandas(df, npartitions=1)
+    if convert_string is True or (convert_string is None and pyarrow_strings_enabled()):
         assert ddf.dtypes["name"] == pd.StringDtype(storage="pyarrow")
     else:
         assert ddf.dtypes["name"] == object
+
+    assert assert_eq(ddf.set_index("idx"), result.set_index("idx"))
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="Segfaults on macOS")
